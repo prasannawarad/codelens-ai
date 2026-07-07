@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../lib/prisma');
 const { findOwnedProject } = require('../lib/ownership');
 const { importGithubRepo } = require('../services/githubImport');
+const { decryptSecret } = require('../lib/secretBox');
 
 // Mounted at /api/projects/:id/github (mergeParams).
 const router = express.Router({ mergeParams: true });
@@ -20,7 +21,7 @@ router.post('/import', async (req, res, next) => {
       project.id,
       repoUrl,
       branch,
-      user?.githubToken || null
+      decryptSecret(user?.githubToken) || null
     );
     res.json(result);
   } catch (err) {

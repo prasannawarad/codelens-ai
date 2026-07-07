@@ -3,6 +3,7 @@ const prisma = require('../lib/prisma');
 const { findOwnedProject } = require('../lib/ownership');
 const { auditQueue } = require('../lib/queue');
 const { formatPrComment } = require('../services/prComment');
+const { diffAudits } = require('../services/auditDiff');
 
 // --- Project-scoped: mounted at /api/projects/:id/audits (mergeParams) ---
 const projectAuditsRouter = express.Router({ mergeParams: true });
@@ -39,11 +40,25 @@ projectAuditsRouter.post('/', async (req, res, next) => {
     const audit = await prisma.audit.create({
       data: { projectId, status: 'queued', incremental, trigger },
     });
-    const job = await auditQueue.add('audit', {
-      auditId: audit.id,
-      projectId,
-      incremental,
-    });
+    let job;
+    try {
+      job = await auditQueue.add('audit', {
+        auditId: audit.id,
+        projectId,
+        incremental,
+      });
+    } catch (err) {
+      // Don't leave an orphaned "queued" row when Redis is unreachable.
+      await prisma.audit.update({
+        where: { id: audit.id },
+        data: {
+          status: 'failed',
+          errorMessage: `Could not enqueue audit: ${err.message}`,
+          completedAt: new Date(),
+        },
+      });
+      return res.status(503).json({ error: 'Audit queue unavailable — try again shortly' });
+    }
     await prisma.audit.update({
       where: { id: audit.id },
       data: { jobId: String(job.id) },
@@ -115,6 +130,30 @@ auditsRouter.get('/audits/:auditId', async (req, res, next) => {
     if (!audit) return res.status(404).json({ error: 'Audit not found' });
     const { project, ...rest } = audit;
     res.json({ ...rest, projectName: project.name });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/audits/:auditId/diff — deltas vs the previous completed audit
+auditsRouter.get('/audits/:auditId/diff', async (req, res, next) => {
+  try {
+    const audit = await findOwnedAudit(req.params.auditId, req.user.id, true);
+    if (!audit) return res.status(404).json({ error: 'Audit not found' });
+    if (audit.status !== 'completed') {
+      return res.status(409).json({ error: `Audit is ${audit.status}, not completed` });
+    }
+    const previous = await prisma.audit.findFirst({
+      where: {
+        projectId: audit.projectId,
+        status: 'completed',
+        id: { not: audit.id },
+        createdAt: { lt: audit.createdAt },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { issues: { include: { file: { select: { filename: true } } } } },
+    });
+    res.json(diffAudits(audit, previous));
   } catch (err) {
     next(err);
   }

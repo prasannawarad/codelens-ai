@@ -97,31 +97,40 @@ async function importGithubRepo(projectId, repoUrl, branch, githubToken, octokit
   const headSha = branchData.data.commit.sha;
   const { selected, skipped } = filterTree(treeData.data.tree);
 
+  // Fetch blobs in parallel batches of 8 — sequential fetches make a 50-file
+  // import painfully slow.
+  const BLOB_CONCURRENCY = 8;
   let imported = 0;
   const langCount = {};
-  for (const item of selected) {
-    let blob;
+  for (let i = 0; i < selected.length; i += BLOB_CONCURRENCY) {
+    const batch = selected.slice(i, i + BLOB_CONCURRENCY);
+    let blobs;
     try {
-      blob = await client.git.getBlob({ owner, repo, file_sha: item.sha });
+      blobs = await Promise.all(
+        batch.map((item) => client.git.getBlob({ owner, repo, file_sha: item.sha }))
+      );
     } catch (err) {
       throw translateOctokitError(err);
     }
-    const content = Buffer.from(blob.data.content, 'base64').toString('utf8');
-    const language = detectLanguage(item.path);
-    if (language) langCount[language] = (langCount[language] || 0) + 1;
-    const data = {
-      content,
-      contentHash: sha256(content),
-      language,
-      lineCount: countLines(content),
-      source: 'github',
-    };
-    await prisma.projectFile.upsert({
-      where: { projectId_filename: { projectId, filename: item.path } },
-      create: { projectId, filename: item.path, ...data },
-      update: data,
-    });
-    imported++;
+    for (let j = 0; j < batch.length; j++) {
+      const item = batch[j];
+      const content = Buffer.from(blobs[j].data.content, 'base64').toString('utf8');
+      const language = detectLanguage(item.path);
+      if (language) langCount[language] = (langCount[language] || 0) + 1;
+      const data = {
+        content,
+        contentHash: sha256(content),
+        language,
+        lineCount: countLines(content),
+        source: 'github',
+      };
+      await prisma.projectFile.upsert({
+        where: { projectId_filename: { projectId, filename: item.path } },
+        create: { projectId, filename: item.path, ...data },
+        update: data,
+      });
+      imported++;
+    }
   }
 
   const dominantLanguage =

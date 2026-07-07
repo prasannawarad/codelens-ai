@@ -1,9 +1,22 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const prisma = require('../lib/prisma');
+const { encryptSecret } = require('../lib/secretBox');
 
 const router = express.Router();
+
+// Brute-force guard on credential endpoints. In-memory (per instance) — fine
+// for a single Railway service; disabled under Jest.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+  message: { error: 'Too many attempts — try again in a few minutes' },
+});
 
 function signToken(user) {
   return jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, {
@@ -15,7 +28,7 @@ function publicUser(user) {
   return { id: user.id, email: user.email, name: user.name };
 }
 
-router.post('/register', async (req, res, next) => {
+router.post('/register', authLimiter, async (req, res, next) => {
   try {
     const { email, password, name } = req.body || {};
     if (!email || !password || !name) {
@@ -31,7 +44,7 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', authLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) {
@@ -72,8 +85,10 @@ router.patch('/me', authMiddleware, async (req, res, next) => {
       where: { id: req.user.id },
       data: {
         ...(typeof name === 'string' && name ? { name } : {}),
-        // empty string clears the stored PAT
-        ...(typeof githubToken === 'string' ? { githubToken: githubToken || null } : {}),
+        // empty string clears the stored PAT; non-empty is encrypted at rest
+        ...(typeof githubToken === 'string'
+          ? { githubToken: githubToken ? encryptSecret(githubToken) : null }
+          : {}),
       },
       select: { id: true, email: true, name: true, githubToken: true },
     });
