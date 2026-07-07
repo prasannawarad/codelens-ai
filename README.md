@@ -2,6 +2,11 @@
 
 AI code audit and technical-debt tracking platform — SonarQube + LLM energy on a free-tier stack. Create projects, add code (paste, upload, or GitHub repo import), run audits that combine **deterministic static metrics** with **Gemini LLM analysis**, get a weighted 0–100 score and per-file issue list, then fix, re-audit and watch the debt trend. Audits run asynchronously on a BullMQ/Redis queue, and re-audits are **incremental** — only changed files (content-hash diff) are re-analyzed.
 
+| | |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Workspace](docs/screenshots/workspace.png) |
+| ![Audit report](docs/screenshots/report.png) | ![Debt timeline](docs/screenshots/timeline.png) |
+
 ## Architecture
 
 ```
@@ -42,11 +47,13 @@ cp .env.example .env        # VITE_API_URL=http://localhost:3001
 npm run dev                 # app on :5173
 ```
 
-**Demo mode (no Gemini key/quota):** set `GEMINI_API_KEY=demo`. Audits then use a deterministic heuristic scanner (eval usage, hardcoded credentials, TODOs, debug output) instead of the LLM — the full pipeline, queue, scoring and UI behave identically. Register any account locally to try it; there is no seeded demo account.
+**Demo mode (no Gemini key/quota):** set `GEMINI_API_KEY=demo`. Audits then use a deterministic heuristic scanner (eval usage, hardcoded credentials, TODOs, debug output) instead of the LLM — the full pipeline, queue, scoring and UI behave identically.
+
+**Demo account:** `cd server && npm run seed` creates `demo@codelens.dev` / `codelens-demo` with a realistic project (`acme-payments-api`) and four backdated audits showing a three-week debt paydown (63 → 71 → 79 → 87) — the dashboard, timeline and diff views look alive immediately. Re-running the seed resets it.
 
 ## API
 
-All routes except register/login/health require `Authorization: Bearer <JWT>` (7-day expiry). Project-scoped routes verify ownership and return **404** (not 403) on foreign resources to avoid enumeration.
+All routes except register/login/health require `Authorization: Bearer <JWT>` (7-day expiry). Project-scoped routes verify ownership and return **404** (not 403) on foreign resources to avoid enumeration. Register/login are rate-limited (30 req / 15 min per IP). Stored GitHub PATs are encrypted at rest with AES-256-GCM (key derived from `JWT_SECRET` — rotating it invalidates stored tokens). If Redis is unreachable, audit enqueue returns 503 and marks the audit row failed instead of leaving it orphaned.
 
 | Method | Path | Behavior |
 |---|---|---|
@@ -67,6 +74,7 @@ All routes except register/login/health require `Authorization: Bearer <JWT>` (7
 | POST | `/api/projects/:id/audits` | **enqueue** audit (never inline). `{incremental?, trigger?}` → 202 `{auditId, jobId}` |
 | GET | `/api/projects/:id/audits` | audit history (timeline) |
 | GET | `/api/audits/:auditId` | status + scores + issues (poll target) |
+| GET | `/api/audits/:auditId/diff` | deltas vs the previous completed audit: score changes + new/fixed issues |
 | GET | `/api/audits/:auditId/markdown` | PR-comment markdown for CI |
 | PATCH | `/api/issues/:issueId/resolve` | toggle resolved |
 | GET | `/health` | 200, no auth |
@@ -126,8 +134,9 @@ On every PR it enqueues an incremental audit (`trigger: "ci"`), polls to complet
 ## Tests
 
 ```bash
-cd server && npm test    # 113 tests: auth, CRUD/ownership, scoring, static
-                         # metrics, Gemini hardening, incremental, GitHub import
+cd server && npm test    # 122 tests: auth, CRUD/ownership, scoring, static
+                         # metrics, Gemini hardening, incremental, GitHub
+                         # import, PAT encryption, audit diff
 ```
 
 Unit tests mock Prisma, the queue and the Gemini SDK — no live Postgres/Redis needed (CI runs them on every push/PR via `.github/workflows/ci.yml`). Queue/worker integration was additionally smoke-tested against local Postgres + Redis: enqueue → worker → completed audit with Issue rows, plus incremental and all-unchanged paths.

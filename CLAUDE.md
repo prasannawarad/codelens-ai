@@ -10,7 +10,8 @@ contracts and the four invariants (INV-1..4); don't deviate from it casually.
 ```bash
 cd server && npm run dev      # API :3001 (never runs audits inline)
 cd server && npm run worker   # BullMQ worker — separate process, required for audits
-cd server && npm test         # Jest, 113 tests, no live services needed
+cd server && npm test         # Jest, 122 tests, no live services needed
+cd server && npm run seed     # demo account: demo@codelens.dev / codelens-demo
 cd client && npm run dev      # Vite :5173
 cd client && npm run build    # must stay clean
 cd server && npx prisma db push   # after schema changes
@@ -31,6 +32,11 @@ cd server && npx prisma db push   # after schema changes
   receiving files **with** `contentHash` — don't strip that field.
 - `runGeminiAudit(files)` has a frozen signature returning `{scores, issues, summary}`.
   `GEMINI_API_KEY=demo` switches to a deterministic heuristic scanner (keep this fallback).
+- GitHub PATs are AES-256-GCM encrypted at rest via `lib/secretBox.js`; the key derives
+  from `JWT_SECRET`, so rotating JWT_SECRET silently invalidates stored PATs.
+- Auth rate limiting (`express-rate-limit`) is skipped when `NODE_ENV === 'test'`.
+- `GET /api/audits/:id/diff` compares against the previous completed audit; issues match
+  on (filename, category, title) — not line numbers.
 
 ## Environment
 

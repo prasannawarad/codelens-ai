@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './components/Toaster';
+import ErrorBoundary from './components/ErrorBoundary';
 import Brand from './components/Brand';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -52,12 +54,17 @@ function RequireAuth({ children }) {
   const { user } = useAuth();
   const location = useLocation();
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
-  return <Shell>{children}</Shell>;
+  return (
+    <Shell>
+      <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+    </Shell>
+  );
 }
 
 export default function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -70,6 +77,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }

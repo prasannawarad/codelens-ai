@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api, { apiError } from '../api/client';
 import Modal from '../components/Modal';
+import Skeleton from '../components/Skeleton';
 import { scoreBand, timeAgo } from '../lib/score';
 
 // Inline SVG sparkline of recent overall scores (oldest → newest).
@@ -181,6 +182,14 @@ export default function Dashboard() {
       </div>
 
       {error && <p className="alert-error mb-4">{error}</p>}
+
+      {!projects && !error && (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-36" />
+          ))}
+        </div>
+      )}
 
       {projects && projects.length === 0 && (
         <div className="rise panel overflow-hidden" style={{ animationDelay: '180ms' }}>

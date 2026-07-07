@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api, { apiError } from '../api/client';
+import { useToast } from '../components/Toaster';
 
 function Section({ title, description, children }) {
   return (
@@ -14,10 +15,10 @@ function Section({ title, description, children }) {
 }
 
 export default function Settings() {
+  const toast = useToast();
   const [me, setMe] = useState(null);
   const [name, setName] = useState('');
   const [githubToken, setGithubToken] = useState('');
-  const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -34,7 +35,6 @@ export default function Settings() {
   const save = async (e) => {
     e.preventDefault();
     setError(null);
-    setMessage(null);
     setBusy(true);
     try {
       const payload = { name };
@@ -42,7 +42,7 @@ export default function Settings() {
       const { data } = await api.patch('/api/auth/me', payload);
       setMe((m) => ({ ...m, ...data }));
       setGithubToken('');
-      setMessage('Settings saved');
+      toast('Settings saved');
     } catch (err) {
       setError(apiError(err, 'Failed to save settings'));
     } finally {
@@ -56,7 +56,7 @@ export default function Settings() {
     try {
       const { data } = await api.patch('/api/auth/me', { githubToken: '' });
       setMe((m) => ({ ...m, ...data }));
-      setMessage('GitHub token removed');
+      toast('GitHub token removed');
     } catch (err) {
       setError(apiError(err));
     } finally {
@@ -69,9 +69,7 @@ export default function Settings() {
       <h1 className="font-display text-[26px] font-semibold tracking-tight text-snow">Settings</h1>
       <p className="mt-1 text-sm text-fog">Profile and integrations for your workspace.</p>
 
-      {(message || error) && (
-        <p className={`${error ? 'alert-error' : 'alert-ok'} mt-5`}>{error || message}</p>
-      )}
+      {error && <p className="alert-error mt-5">{error}</p>}
 
       <form onSubmit={save} className="mt-2 divide-y divide-edge">
         <Section title="Profile" description="How you appear in the workspace.">

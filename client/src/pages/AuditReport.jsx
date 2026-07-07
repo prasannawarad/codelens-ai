@@ -5,13 +5,39 @@ import ScoreGauge from '../components/ScoreGauge';
 import MetricsPanel from '../components/MetricsPanel';
 import IssueCard from '../components/IssueCard';
 import AuditProgress from '../components/AuditProgress';
+import Skeleton from '../components/Skeleton';
+import { useToast } from '../components/Toaster';
 import { SEVERITY_ORDER, timeAgo } from '../lib/score';
 
 const CATEGORIES = ['bug', 'security', 'performance', 'style', 'debt'];
 
+function Delta({ label, value }) {
+  if (value == null) return null;
+  const color = value > 0 ? 'text-emerald-400' : value < 0 ? 'text-red-400' : 'text-fog';
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span className="text-xs text-fog">{label}</span>
+      <span className={`font-mono text-sm font-semibold ${color}`}>
+        {value > 0 ? `+${value}` : value}
+      </span>
+    </span>
+  );
+}
+
+function downloadFile(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function AuditReport() {
   const { auditId } = useParams();
+  const toast = useToast();
   const [audit, setAudit] = useState(null);
+  const [diff, setDiff] = useState(null);
   const [error, setError] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [fileFilter, setFileFilter] = useState(null);
@@ -25,6 +51,32 @@ export default function AuditReport() {
   useEffect(() => {
     loadAudit();
   }, [auditId]);
+
+  useEffect(() => {
+    if (audit?.status === 'completed') {
+      api
+        .get(`/api/audits/${auditId}/diff`)
+        .then(({ data }) => setDiff(data))
+        .catch(() => {}); // diff is additive — never block the report on it
+    }
+  }, [auditId, audit?.status]);
+
+  const exportMarkdown = async () => {
+    try {
+      const { data } = await api.get(`/api/audits/${auditId}/markdown`, { responseType: 'text' });
+      downloadFile(`codelens-audit-${auditId.slice(0, 8)}.md`, data, 'text/markdown');
+    } catch (err) {
+      toast(apiError(err, 'Export failed'), 'error');
+    }
+  };
+
+  const exportJson = () => {
+    downloadFile(
+      `codelens-audit-${auditId.slice(0, 8)}.json`,
+      JSON.stringify(audit, null, 2),
+      'application/json'
+    );
+  };
 
   const files = useMemo(() => {
     const names = new Set((audit?.issues || []).map((i) => i.file?.filename).filter(Boolean));
@@ -44,7 +96,18 @@ export default function AuditReport() {
   };
 
   if (error) return <p className="alert-error">{error}</p>;
-  if (!audit) return <p className="text-sm text-fog">Loading…</p>;
+  if (!audit) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[260px_1fr]">
+          <Skeleton className="h-56" />
+          <Skeleton className="h-56" />
+        </div>
+        <Skeleton className="h-48" />
+      </div>
+    );
+  }
 
   // Audit still in flight (e.g. opened by direct link) — show live progress
   // instead of empty gauges, then swap to the report when it lands.
@@ -113,10 +176,41 @@ export default function AuditReport() {
             incremental — {audit.analyzedFileCount} analyzed, {audit.reusedFileCount} reused
           </span>
         )}
-        <Link to={`/projects/${audit.projectId}/timeline`} className="btn-ghost ml-auto">
-          Timeline
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={exportMarkdown} className="btn-ghost" title="Download the PR-comment markdown">
+            Export .md
+          </button>
+          <button onClick={exportJson} className="btn-ghost" title="Download the full audit as JSON">
+            Export .json
+          </button>
+          <Link to={`/projects/${audit.projectId}/timeline`} className="btn-ghost">
+            Timeline
+          </Link>
+        </div>
       </div>
+
+      {diff && (
+        <div
+          className="rise panel mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3"
+          style={{ animationDelay: '30ms' }}
+        >
+          <span className="microlabel">vs previous audit</span>
+          <Delta label="overall" value={diff.scoreDeltas.overallScore} />
+          <Delta label="security" value={diff.scoreDeltas.securityScore} />
+          <Delta label="performance" value={diff.scoreDeltas.performanceScore} />
+          <Delta label="maintainability" value={diff.scoreDeltas.maintainabilityScore} />
+          <Delta label="debt" value={diff.scoreDeltas.debtScore} />
+          <span className="ml-auto font-mono text-xs">
+            <span className={diff.newCount > 0 ? 'text-red-400' : 'text-fog'}>
+              {diff.newCount} new
+            </span>
+            <span className="text-fog"> · </span>
+            <span className={diff.fixedCount > 0 ? 'text-emerald-400' : 'text-fog'}>
+              {diff.fixedCount} fixed
+            </span>
+          </span>
+        </div>
+      )}
 
       <div className="rise mb-6 grid grid-cols-1 gap-3 lg:grid-cols-[260px_1fr]" style={{ animationDelay: '60ms' }}>
         <div className="panel flex flex-col items-center justify-center gap-1 p-6">

@@ -6,11 +6,16 @@ import FileUploader from '../components/FileUploader';
 import GitHubImport from '../components/GitHubImport';
 import AuditProgress from '../components/AuditProgress';
 import IssueCard from '../components/IssueCard';
+import Skeleton from '../components/Skeleton';
+import { useToast } from '../components/Toaster';
 import { SEVERITY_ORDER, SEVERITY_STYLES, scoreBand } from '../lib/score';
+
+const ISSUE_PAGE_SIZE = 30;
 
 export default function ProjectView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [project, setProject] = useState(null);
   const [error, setError] = useState(null);
@@ -18,10 +23,13 @@ export default function ProjectView() {
   const [openTabs, setOpenTabs] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [contents, setContents] = useState({});
+  const [fileQuery, setFileQuery] = useState('');
+  const [syncing, setSyncing] = useState(false);
 
   const [issues, setIssues] = useState([]);
   const [severityFilter, setSeverityFilter] = useState(new Set());
   const [fileScope, setFileScope] = useState(true);
+  const [issueLimit, setIssueLimit] = useState(ISSUE_PAGE_SIZE);
 
   const [showUploader, setShowUploader] = useState(false);
   const [showGithub, setShowGithub] = useState(false);
@@ -82,9 +90,33 @@ export default function ProjectView() {
     try {
       await api.delete(`/api/projects/${id}/files/${file.id}`);
       closeTab(file.id);
+      toast(`Deleted ${file.filename}`);
       load();
     } catch (err) {
-      setError(apiError(err, 'Failed to delete file'));
+      toast(apiError(err, 'Failed to delete file'), 'error');
+    }
+  };
+
+  // One-click re-import of the linked repo — re-syncing after new commits
+  // feeds the incremental audit path.
+  const syncRepo = async () => {
+    setSyncing(true);
+    try {
+      const { data } = await api.post(`/api/projects/${id}/github/import`, {
+        repoUrl: project.repoUrl,
+        branch: project.repoBranch || 'main',
+      });
+      toast(
+        `Synced ${data.imported} file${data.imported === 1 ? '' : 's'} @ ${data.headSha.slice(0, 7)}${
+          data.skipped ? ` (${data.skipped} skipped)` : ''
+        }`
+      );
+      setContents({});
+      load();
+    } catch (err) {
+      toast(apiError(err, 'Sync failed'), 'error');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -104,17 +136,22 @@ export default function ProjectView() {
       setIssues((list) =>
         list.map((i) => (i.id === issue.id ? { ...i, resolved: data.resolved } : i))
       );
+      toast(data.resolved ? 'Issue marked resolved' : 'Issue reopened');
     } catch (err) {
-      setError(apiError(err, 'Failed to update issue'));
+      toast(apiError(err, 'Failed to update issue'), 'error');
     }
   };
 
   const activeFile = project?.files?.find((f) => f.id === activeId);
-  const visibleIssues = issues.filter((i) => {
+  const visibleFiles = (project?.files || []).filter((f) =>
+    f.filename.toLowerCase().includes(fileQuery.trim().toLowerCase())
+  );
+  const matchingIssues = issues.filter((i) => {
     if (severityFilter.size > 0 && !severityFilter.has(i.severity)) return false;
     if (fileScope && activeFile && i.file?.filename !== activeFile.filename) return false;
     return true;
   });
+  const visibleIssues = matchingIssues.slice(0, issueLimit);
 
   const toggleSeverity = (sev) => {
     setSeverityFilter((prev) => {
@@ -125,7 +162,18 @@ export default function ProjectView() {
   };
 
   if (error && !project) return <p className="alert-error">{error}</p>;
-  if (!project) return <p className="text-sm text-fog">Loading…</p>;
+  if (!project) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-72" />
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[15rem_minmax(0,1fr)_21rem]">
+          <Skeleton className="h-[50vh]" />
+          <Skeleton className="h-[50vh]" />
+          <Skeleton className="h-[50vh]" />
+        </div>
+      </div>
+    );
+  }
 
   const band = scoreBand(project.debtScore);
 
@@ -161,6 +209,16 @@ export default function ProjectView() {
           <Link to={`/projects/${id}/timeline`} className="btn-ghost">
             Timeline
           </Link>
+          {project.repoUrl && (
+            <button
+              onClick={syncRepo}
+              disabled={syncing}
+              className="btn-ghost"
+              title={`Re-import ${project.repoUrl} @ ${project.repoBranch || 'main'}`}
+            >
+              {syncing ? 'Syncing…' : 'Sync repo'}
+            </button>
+          )}
           <button onClick={() => setShowGithub(true)} className="btn-ghost">
             Import GitHub
           </button>
@@ -225,6 +283,16 @@ export default function ProjectView() {
               + Add
             </button>
           </div>
+          {project.files.length > 6 && (
+            <div className="border-b border-edge px-2 py-1.5">
+              <input
+                value={fileQuery}
+                onChange={(e) => setFileQuery(e.target.value)}
+                placeholder="Filter files…"
+                className="w-full rounded-md border border-edge bg-ink-950 px-2 py-1 font-mono text-xs text-snow placeholder:text-fog/50 focus:border-volt-500 focus:outline-none"
+              />
+            </div>
+          )}
           <div className="max-h-[68vh] flex-1 overflow-y-auto p-1.5">
             {project.files.length === 0 && (
               <p className="p-3 text-xs leading-relaxed text-fog">
@@ -232,7 +300,10 @@ export default function ProjectView() {
                 code, or <span className="text-mist">Import GitHub</span> for a whole repo.
               </p>
             )}
-            {project.files.map((f) => (
+            {project.files.length > 0 && visibleFiles.length === 0 && (
+              <p className="p-3 text-xs text-fog">No files match “{fileQuery}”.</p>
+            )}
+            {visibleFiles.map((f) => (
               <div
                 key={f.id}
                 className={`group flex items-center justify-between gap-1 rounded-md px-2 py-1.5 transition-colors ${
@@ -347,12 +418,20 @@ export default function ProjectView() {
                 severity and file.
               </p>
             )}
-            {issues.length > 0 && visibleIssues.length === 0 && (
+            {issues.length > 0 && matchingIssues.length === 0 && (
               <p className="p-3 text-xs text-fog">No issues match the current filters.</p>
             )}
             {visibleIssues.map((issue) => (
               <IssueCard key={issue.id} issue={issue} onResolve={toggleResolve} />
             ))}
+            {matchingIssues.length > issueLimit && (
+              <button
+                onClick={() => setIssueLimit((n) => n + ISSUE_PAGE_SIZE)}
+                className="btn-ghost w-full !py-1.5 font-mono !text-[11px]"
+              >
+                Show {Math.min(ISSUE_PAGE_SIZE, matchingIssues.length - issueLimit)} more
+              </button>
+            )}
           </div>
         </div>
       </div>
