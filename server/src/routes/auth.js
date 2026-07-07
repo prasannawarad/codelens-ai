@@ -47,4 +47,41 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
+// Settings endpoints (auth-protected per INV-4). The GitHub PAT is stored for
+// private-repo imports and never echoed back — only its presence.
+const authMiddleware = require('../middleware/auth');
+
+router.get('/me', authMiddleware, async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, email: true, name: true, githubToken: true, createdAt: true },
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { githubToken, ...rest } = user;
+    res.json({ ...rest, hasGithubToken: Boolean(githubToken) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/me', authMiddleware, async (req, res, next) => {
+  try {
+    const { name, githubToken } = req.body || {};
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        ...(typeof name === 'string' && name ? { name } : {}),
+        // empty string clears the stored PAT
+        ...(typeof githubToken === 'string' ? { githubToken: githubToken || null } : {}),
+      },
+      select: { id: true, email: true, name: true, githubToken: true },
+    });
+    const { githubToken: token, ...rest } = user;
+    res.json({ ...rest, hasGithubToken: Boolean(token) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
