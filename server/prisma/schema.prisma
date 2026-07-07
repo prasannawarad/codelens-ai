@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  githubToken  String?   @map("github_token")   // optional PAT for private repos
+  createdAt    DateTime  @default(now())
+  projects     Project[]
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id])
+  name        String
+  description String?
+  language    String?                            // auto-detected primary language
+  // GitHub linkage
+  repoUrl     String?   @map("repo_url")         // e.g. https://github.com/owner/repo
+  repoBranch  String?   @map("repo_branch")      // default "main"
+  lastSyncSha String?   @map("last_sync_sha")    // HEAD commit at last import
+  // Audit state
+  lastAuditAt DateTime? @map("last_audit_at")
+  debtScore   Float?    @map("debt_score")       // 0-100, lower = more debt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  files       ProjectFile[]
+  audits      Audit[]
+}
+
+model ProjectFile {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  filename    String                              // path-like, e.g. src/routes/auth.js
+  content     String
+  contentHash String   @map("content_hash")      // sha256 hex of content (INCREMENTAL KEY)
+  language    String?
+  lineCount   Int      @default(0) @map("line_count")
+  source      String   @default("upload")        // upload | paste | github
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  issues      Issue[]
+
+  @@unique([projectId, filename])
+}
+
+model Audit {
+  id                   String   @id @default(uuid())
+  projectId            String   @map("project_id")
+  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status               String   @default("queued")   // queued | running | completed | failed
+  jobId                String?  @map("job_id")
+  trigger              String   @default("manual")   // manual | ci
+  incremental          Boolean  @default(false)
+  analyzedFileCount    Int      @default(0) @map("analyzed_file_count")
+  reusedFileCount      Int      @default(0) @map("reused_file_count")
+  overallScore         Float?   @map("overall_score")
+  securityScore        Float?   @map("security_score")
+  performanceScore     Float?   @map("performance_score")
+  maintainabilityScore Float?   @map("maintainability_score")
+  debtScore            Float?   @map("debt_score")
+  complexityScore      Float?   @map("complexity_score")     // from static metrics
+  staticMetrics        Json?    @map("static_metrics")       // per-file metrics snapshot
+  summary              String?
+  totalIssues          Int      @default(0) @map("total_issues")
+  criticalCount        Int      @default(0) @map("critical_count")
+  errorMessage         String?  @map("error_message")
+  createdAt            DateTime @default(now())
+  completedAt          DateTime? @map("completed_at")
+  issues               Issue[]
+}
+
+model Issue {
+  id          String       @id @default(uuid())
+  auditId     String       @map("audit_id")
+  audit       Audit        @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  fileId      String?      @map("file_id")
+  file        ProjectFile? @relation(fields: [fileId], references: [id])
+  category    String                     // bug | security | performance | style | debt
+  severity    String                     // critical | high | medium | low
+  title       String
+  description String
+  suggestion  String?
+  lineNumber  Int?         @map("line_number")
+  resolved    Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+}
