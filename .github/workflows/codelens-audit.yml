@@ -1,0 +1,46 @@
+# CodeLens audit-on-PR. Copy this workflow into any repo you want audited and
+# set three repo secrets: CODELENS_API_URL, CODELENS_TOKEN (a JWT from
+# /api/auth/login), CODELENS_PROJECT_ID (the CodeLens project linked to this
+# repo). The audit runs incrementally against the files stored in CodeLens.
+name: CodeLens Audit
+on: [pull_request]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trigger CodeLens audit
+        env:
+          CODELENS_API: ${{ secrets.CODELENS_API_URL }}
+          CODELENS_TOKEN: ${{ secrets.CODELENS_TOKEN }}
+          CODELENS_PROJECT: ${{ secrets.CODELENS_PROJECT_ID }}
+        run: |
+          RESP=$(curl -s -X POST "$CODELENS_API/api/projects/$CODELENS_PROJECT/audits" \
+            -H "Authorization: Bearer $CODELENS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"incremental": true, "trigger": "ci"}')
+          AUDIT_ID=$(echo "$RESP" | jq -r .auditId)
+          if [ "$AUDIT_ID" = "null" ] || [ -z "$AUDIT_ID" ]; then
+            echo "Failed to enqueue audit: $RESP" && exit 1
+          fi
+          for i in $(seq 1 60); do
+            sleep 5
+            STATUS=$(curl -s "$CODELENS_API/api/audits/$AUDIT_ID" \
+              -H "Authorization: Bearer $CODELENS_TOKEN")
+            [ "$(echo "$STATUS" | jq -r .status)" = "completed" ] && break
+            [ "$(echo "$STATUS" | jq -r .status)" = "failed" ] && exit 1
+          done
+          echo "$STATUS" > audit.json
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const audit = require('./audit.json');
+            const body = [
+              `## CodeLens Audit — Score: ${audit.overallScore}/100`,
+              `Security ${audit.securityScore} · Performance ${audit.performanceScore} · Maintainability ${audit.maintainabilityScore} · Debt ${audit.debtScore} · Complexity ${audit.complexityScore}`,
+              `Issues: ${audit.totalIssues} (${audit.criticalCount} critical) · Analyzed ${audit.analyzedFileCount} files, reused ${audit.reusedFileCount}`,
+            ].join('\n\n');
+            github.rest.issues.createComment({
+              ...context.repo, issue_number: context.issue.number, body,
+            });
