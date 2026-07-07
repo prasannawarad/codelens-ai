@@ -105,5 +105,6 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 router.use('/:id/files', require('./files'));
+router.use('/:id/audits', require('./audits').projectAuditsRouter);
 
 module.exports = router;

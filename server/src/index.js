@@ -14,6 +14,7 @@ const authMiddleware = require('./middleware/auth');
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', authMiddleware, require('./routes/projects'));
+app.use('/api', authMiddleware, require('./routes/audits').auditsRouter);
 
 // Central error handler — no stack traces to clients.
 app.use((err, req, res, next) => {

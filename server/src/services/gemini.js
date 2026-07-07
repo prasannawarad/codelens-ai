@@ -159,6 +159,79 @@ function mergeBatchResults(results, batches) {
   };
 }
 
+// Demo mode (GEMINI_API_KEY="demo"): deterministic heuristic scan instead of
+// a live LLM call. Keeps the platform fully demoable on zero quota.
+const DEMO_HEURISTICS = [
+  {
+    pattern: /\beval\s*\(/,
+    category: 'security',
+    severity: 'critical',
+    title: 'Use of eval()',
+    description: 'eval() executes arbitrary strings as code and enables injection attacks.',
+    suggestion: 'Replace eval() with explicit parsing or a safe dispatch table.',
+  },
+  {
+    pattern: /(password|secret|api[_-]?key)\s*[:=]\s*['"][^'"]{4,}['"]/i,
+    category: 'security',
+    severity: 'high',
+    title: 'Possible hardcoded credential',
+    description: 'A credential-looking literal is committed in source.',
+    suggestion: 'Move secrets to environment variables.',
+  },
+  {
+    pattern: /\b(TODO|FIXME)\b/,
+    category: 'debt',
+    severity: 'medium',
+    title: 'Unresolved TODO/FIXME',
+    description: 'Deferred work is tracked only in a comment.',
+    suggestion: 'File a ticket or resolve the TODO.',
+  },
+  {
+    pattern: /console\.log\(|print\(/,
+    category: 'style',
+    severity: 'low',
+    title: 'Debug output left in code',
+    description: 'Raw debug output should not ship to production.',
+    suggestion: 'Remove the statement or use a structured logger.',
+  },
+];
+
+function runDemoAudit(files) {
+  const issues = [];
+  for (const file of files) {
+    const lines = file.content.split('\n');
+    for (const heuristic of DEMO_HEURISTICS) {
+      const lineIdx = lines.findIndex((l) => heuristic.pattern.test(l));
+      if (lineIdx !== -1) {
+        issues.push({
+          filename: file.filename,
+          category: heuristic.category,
+          severity: heuristic.severity,
+          title: heuristic.title,
+          description: heuristic.description,
+          suggestion: heuristic.suggestion,
+          line_number: lineIdx + 1,
+        });
+      }
+    }
+  }
+  const penalty = { critical: 25, high: 12, medium: 5, low: 2 };
+  const byCategory = {};
+  for (const issue of issues) {
+    byCategory[issue.category] = (byCategory[issue.category] || 0) + penalty[issue.severity];
+  }
+  return {
+    scores: {
+      security: clamp(95 - (byCategory.security || 0)),
+      performance: clamp(90 - (byCategory.performance || 0)),
+      maintainability: clamp(88 - (byCategory.style || 0)),
+      debt: clamp(85 - (byCategory.debt || 0)),
+    },
+    issues,
+    summary: `Demo-mode audit (deterministic heuristics, no LLM call): scanned ${files.length} file(s), found ${issues.length} issue(s). Set a real GEMINI_API_KEY for full AI analysis.`,
+  };
+}
+
 async function runGeminiAudit(files) {
   if (!files || files.length === 0) {
     return {
@@ -167,6 +240,7 @@ async function runGeminiAudit(files) {
       summary: 'No changed files to analyze.',
     };
   }
+  if (process.env.GEMINI_API_KEY === 'demo') return runDemoAudit(files);
   const batches = chunkFiles(files);
   if (batches.length === 1) return auditBatch(batches[0]);
   const results = [];

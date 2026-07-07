@@ -4,6 +4,11 @@ jest.mock('../lib/prisma', () => ({
   user: { findUnique: jest.fn(), create: jest.fn() },
 }));
 
+jest.mock('../lib/queue', () => ({
+  auditQueue: { add: jest.fn() },
+  connection: {},
+}));
+
 const request = require('supertest');
 const express = require('express');
 const bcrypt = require('bcryptjs');

@@ -19,6 +19,11 @@ jest.mock('../lib/prisma', () => ({
   audit: { findMany: jest.fn() },
 }));
 
+jest.mock('../lib/queue', () => ({
+  auditQueue: { add: jest.fn() },
+  connection: {},
+}));
+
 const crypto = require('crypto');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
