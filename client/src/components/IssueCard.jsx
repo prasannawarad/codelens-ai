@@ -2,44 +2,45 @@ import { SEVERITY_STYLES } from '../lib/score';
 
 export default function IssueCard({ issue, onResolve }) {
   return (
-    <div
-      className={`rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 ${
-        issue.resolved ? 'opacity-50' : ''
-      }`}
-    >
-      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+    <div className={`panel p-3.5 transition-opacity ${issue.resolved ? 'opacity-45' : ''}`}>
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <span
-          className={`rounded border px-1.5 py-0.5 font-mono text-[11px] uppercase ${
+          className={`rounded border px-1.5 py-0.5 font-mono text-[10.5px] font-medium uppercase tracking-wide ${
             SEVERITY_STYLES[issue.severity] || SEVERITY_STYLES.low
           }`}
         >
           {issue.severity}
         </span>
-        <span className="rounded border border-zinc-700 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
+        <span className="rounded border border-edge px-1.5 py-0.5 font-mono text-[10.5px] text-fog">
           {issue.category}
         </span>
         {issue.file && (
-          <span className="truncate font-mono text-[11px] text-zinc-500">
+          <span className="ml-auto truncate font-mono text-[11px] text-fog/80">
             {issue.file.filename}
             {issue.lineNumber ? `:${issue.lineNumber}` : ''}
           </span>
         )}
       </div>
-      <p className={`text-sm font-medium text-zinc-200 ${issue.resolved ? 'line-through' : ''}`}>
+      <p className={`text-sm font-medium text-snow ${issue.resolved ? 'line-through' : ''}`}>
         {issue.title}
       </p>
       {issue.description && (
-        <p className="mt-1 text-sm leading-relaxed text-zinc-400">{issue.description}</p>
+        <p className="mt-1 text-[13px] leading-relaxed text-fog">{issue.description}</p>
       )}
       {issue.suggestion && (
-        <p className="mt-2 rounded-md border border-zinc-800 bg-zinc-950 p-2 font-mono text-xs leading-relaxed text-zinc-400">
-          {issue.suggestion}
-        </p>
+        <div className="mt-2.5 rounded-lg border border-edge bg-ink-950 p-2.5">
+          <p className="microlabel mb-1 !text-[9.5px]">Suggested fix</p>
+          <p className="font-mono text-xs leading-relaxed text-mist">{issue.suggestion}</p>
+        </div>
       )}
       {onResolve && (
         <button
           onClick={() => onResolve(issue)}
-          className="mt-2 rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+          className={`mt-2.5 rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+            issue.resolved
+              ? 'border-edge text-fog hover:text-mist'
+              : 'border-volt-500/30 text-volt-400 hover:border-volt-500/60 hover:text-volt-300'
+          }`}
         >
           {issue.resolved ? 'Reopen' : 'Mark resolved'}
         </button>

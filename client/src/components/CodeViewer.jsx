@@ -36,11 +36,13 @@ export default function CodeViewer({ content, language }) {
       showLineNumbers
       customStyle={{
         margin: 0,
-        background: '#09090b',
+        background: '#08090c',
         fontSize: '12.5px',
         minHeight: '100%',
+        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
       }}
-      lineNumberStyle={{ color: '#3f3f46', minWidth: '2.5em' }}
+      codeTagProps={{ style: { fontFamily: "'IBM Plex Mono', ui-monospace, monospace" } }}
+      lineNumberStyle={{ color: '#2c3345', minWidth: '2.5em' }}
     >
       {content || ''}
     </SyntaxHighlighter>

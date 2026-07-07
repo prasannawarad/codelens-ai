@@ -4,63 +4,100 @@ import api, { apiError } from '../api/client';
 import Modal from '../components/Modal';
 import { scoreBand, timeAgo } from '../lib/score';
 
-// Tiny inline SVG sparkline of the last audits' overall scores (oldest → newest).
+// Inline SVG sparkline of recent overall scores (oldest → newest).
 function Sparkline({ audits }) {
   const scores = audits
     .filter((a) => a.status === 'completed' && a.overallScore != null)
     .slice()
     .reverse()
     .map((a) => a.overallScore);
-  if (scores.length < 2) return <div className="h-8" />;
-  const w = 120;
-  const h = 32;
-  const points = scores
-    .map((s, i) => `${(i / (scores.length - 1)) * w},${h - (s / 100) * (h - 4) - 2}`)
-    .join(' ');
+  if (scores.length < 2) return null;
+  const w = 110;
+  const h = 30;
+  const pts = scores.map(
+    (s, i) => [(i / (scores.length - 1)) * (w - 6) + 3, h - (s / 100) * (h - 8) - 4]
+  );
+  const line = pts.map(([x, y]) => `${x},${y}`).join(' ');
+  const last = pts[pts.length - 1];
   return (
-    <svg width={w} height={h} className="opacity-80">
-      <polyline points={points} fill="none" stroke="#818cf8" strokeWidth="1.5" />
-    </svg>
+    <div className="flex flex-col items-end gap-0.5">
+      <svg width={w} height={h}>
+        <polyline points={line} fill="none" stroke="var(--color-volt-400)" strokeWidth="1.5" opacity="0.85" />
+        <circle cx={last[0]} cy={last[1]} r="2.5" fill="var(--color-volt-400)" />
+      </svg>
+      <span className="font-mono text-[10px] text-fog/70">last {scores.length} audits</span>
+    </div>
   );
 }
 
-function ProjectCard({ project }) {
+function ScoreRing({ score, size = 46 }) {
+  const band = scoreBand(score);
+  const r = size / 2 - 3;
+  const c = 2 * Math.PI * r;
+  const v = score == null ? 0 : (Math.min(100, Math.max(0, score)) / 100) * c;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }} title="Debt score — higher is better">
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-edge)" strokeWidth="3" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={band.hex}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={`${v} ${c - v}`}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center font-mono text-[13px] font-semibold text-snow">
+        {score != null ? Math.round(score) : '—'}
+      </span>
+    </div>
+  );
+}
+
+function ProjectCard({ project, index }) {
   const latest = project.audits?.[0];
-  const band = scoreBand(project.debtScore);
   return (
     <Link
       to={`/projects/${project.id}`}
-      className="group rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-zinc-700"
+      className="rise group panel block p-4 transition-all hover:-translate-y-0.5 hover:border-edge-bright"
+      style={{ animationDelay: `${90 + index * 60}ms` }}
     >
-      <div className="mb-2 flex items-start justify-between gap-2">
+      <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate font-medium text-zinc-100 group-hover:text-white">
-            {project.name}
-          </h3>
-          {project.description && (
-            <p className="mt-0.5 truncate text-sm text-zinc-500">{project.description}</p>
-          )}
-        </div>
-        <span
-          className={`shrink-0 rounded-md px-2 py-1 font-mono text-sm font-semibold ${band.bg} ${band.text}`}
-          title="Debt score (higher is better)"
-        >
-          {project.debtScore != null ? Math.round(project.debtScore) : '—'}
-        </span>
-      </div>
-      <div className="flex items-end justify-between gap-2">
-        <div className="space-y-1 text-xs text-zinc-500">
-          {project.language && <p className="font-mono">{project.language}</p>}
-          <p>
-            {project._count?.files ?? 0} files · last audit{' '}
-            {latest ? timeAgo(latest.completedAt || latest.createdAt) : 'never'}
+          <h3 className="truncate font-medium text-snow">{project.name}</h3>
+          <p className="mt-0.5 truncate text-sm text-fog">
+            {project.description || 'No description'}
           </p>
+        </div>
+        <ScoreRing score={project.debtScore} />
+      </div>
+      <div className="flex items-end justify-between gap-3 border-t border-edge pt-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-fog">
+          {project.language && (
+            <span className="rounded border border-edge px-1.5 py-0.5 text-mist">{project.language}</span>
+          )}
+          <span>{project._count?.files ?? 0} files</span>
+          <span>
+            {latest
+              ? `audited ${timeAgo(latest.completedAt || latest.createdAt)}`
+              : 'never audited'}
+          </span>
         </div>
         <Sparkline audits={project.audits || []} />
       </div>
     </Link>
   );
 }
+
+const ONBOARDING = [
+  ['01', 'Create a project', 'A workspace for one codebase — its files, audits and history.'],
+  ['02', 'Add code', 'Paste files, drag-drop uploads, or import a GitHub repository.'],
+  ['03', 'Run an audit', 'Deterministic static metrics + AI analysis across bugs, security, performance, style and debt — scored 0–100.'],
+  ['04', 'Fix and re-audit', 'Incremental audits re-analyze only changed files and track your debt trend over time.'],
+];
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -71,17 +108,11 @@ export default function Dashboard() {
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const load = async () => {
-    try {
-      const { data } = await api.get('/api/projects');
-      setProjects(data);
-    } catch (err) {
-      setError(apiError(err, 'Failed to load projects'));
-    }
-  };
-
   useEffect(() => {
-    load();
+    api
+      .get('/api/projects')
+      .then(({ data }) => setProjects(data))
+      .catch((err) => setError(apiError(err, 'Failed to load projects')));
   }, []);
 
   const createProject = async (e) => {
@@ -106,77 +137,100 @@ export default function Dashboard() {
     (s, p) => s + (p.audits?.[0]?.status === 'completed' ? p.audits[0].totalIssues : 0),
     0
   );
+  const criticals = (projects || []).reduce(
+    (s, p) => s + (p.audits?.[0]?.status === 'completed' ? p.audits[0].criticalCount : 0),
+    0
+  );
+
+  const stats = [
+    ['Projects', projects?.length ?? '—', 'workspaces under the lens'],
+    ['Avg score', avgScore ?? '—', 'across recent completed audits'],
+    ['Open issues', projects ? openIssues : '—', `${criticals} critical in latest audits`],
+  ];
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Projects</h1>
-        <button
-          onClick={() => setCreating(true)}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-        >
-          New project
+      <div className="rise mb-7 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-[26px] font-semibold tracking-tight text-snow">
+            Projects
+          </h1>
+          <p className="mt-1 text-sm text-fog">
+            Each project is one codebase — its files, audit history and debt trend.
+          </p>
+        </div>
+        <button onClick={() => setCreating(true)} className="btn-primary">
+          <span className="font-mono text-base leading-none">+</span> New project
         </button>
       </div>
 
-      <div className="mb-6 grid grid-cols-3 gap-3">
-        {[
-          ['Projects', projects?.length ?? '—'],
-          ['Avg score (recent audits)', avgScore ?? '—'],
-          ['Issues in latest audits', projects ? openIssues : '—'],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-zinc-500">{label}</p>
-            <p className="mt-1 font-mono text-2xl font-semibold text-zinc-100">{value}</p>
+      <div className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {stats.map(([label, value, hint], i) => (
+          <div
+            key={label}
+            className="rise panel px-4 py-3.5"
+            style={{ animationDelay: `${i * 60}ms` }}
+          >
+            <p className="microlabel">{label}</p>
+            <p className="mt-1.5 font-mono text-[28px] font-semibold leading-none text-snow">
+              {value}
+            </p>
+            <p className="mt-1.5 text-xs text-fog/80">{hint}</p>
           </div>
         ))}
       </div>
 
-      {error && (
-        <p className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <p className="alert-error mb-4">{error}</p>}
 
       {projects && projects.length === 0 && (
-        <div className="rounded-lg border border-dashed border-zinc-800 p-12 text-center">
-          <p className="mb-1 text-zinc-300">No projects yet</p>
-          <p className="text-sm text-zinc-500">
-            Create one, add code or import a GitHub repo, and run your first audit.
-          </p>
+        <div className="rise panel overflow-hidden" style={{ animationDelay: '180ms' }}>
+          <div className="border-b border-edge px-6 py-4">
+            <h2 className="font-display text-lg font-semibold text-snow">How CodeLens works</h2>
+            <p className="mt-0.5 text-sm text-fog">Four steps from raw code to a tracked debt score.</p>
+          </div>
+          <ol className="grid grid-cols-1 divide-y divide-edge md:grid-cols-4 md:divide-x md:divide-y-0">
+            {ONBOARDING.map(([num, title, desc]) => (
+              <li key={num} className="p-5">
+                <span className="font-mono text-xs font-semibold text-volt-400">{num}</span>
+                <p className="mt-2 text-sm font-medium text-snow">{title}</p>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-fog">{desc}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="border-t border-edge px-6 py-4">
+            <button onClick={() => setCreating(true)} className="btn-primary">
+              Create your first project
+            </button>
+          </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {(projects || []).map((p) => (
-          <ProjectCard key={p.id} project={p} />
+        {(projects || []).map((p, i) => (
+          <ProjectCard key={p.id} project={p} index={i} />
         ))}
       </div>
 
       {creating && (
         <Modal title="New project" onClose={() => setCreating(false)}>
           <form onSubmit={createProject}>
-            <label className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">Name</label>
+            <label className="microlabel mb-1.5 block">Name</label>
             <input
               required
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mb-3 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
+              placeholder="e.g. payments-service"
+              className="field mb-4"
             />
-            <label className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">
-              Description (optional)
-            </label>
+            <label className="microlabel mb-1.5 block">Description (optional)</label>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mb-4 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
+              placeholder="What this codebase does"
+              className="field mb-5"
             />
-            <button
-              type="submit"
-              disabled={busy}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-            >
+            <button type="submit" disabled={busy} className="btn-primary w-full">
               {busy ? 'Creating…' : 'Create project'}
             </button>
           </form>

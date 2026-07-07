@@ -4,6 +4,7 @@ import api, { apiError } from '../api/client';
 import ScoreGauge from '../components/ScoreGauge';
 import MetricsPanel from '../components/MetricsPanel';
 import IssueCard from '../components/IssueCard';
+import AuditProgress from '../components/AuditProgress';
 import { SEVERITY_ORDER, timeAgo } from '../lib/score';
 
 const CATEGORIES = ['bug', 'security', 'performance', 'style', 'debt'];
@@ -15,11 +16,14 @@ export default function AuditReport() {
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [fileFilter, setFileFilter] = useState(null);
 
-  useEffect(() => {
+  const loadAudit = () =>
     api
       .get(`/api/audits/${auditId}`)
       .then(({ data }) => setAudit(data))
       .catch((err) => setError(apiError(err, 'Failed to load audit')));
+
+  useEffect(() => {
+    loadAudit();
   }, [auditId]);
 
   const files = useMemo(() => {
@@ -39,17 +43,28 @@ export default function AuditReport() {
     }
   };
 
-  if (error) {
-    return <p className="rounded-md border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">{error}</p>;
+  if (error) return <p className="alert-error">{error}</p>;
+  if (!audit) return <p className="text-sm text-fog">Loading…</p>;
+
+  // Audit still in flight (e.g. opened by direct link) — show live progress
+  // instead of empty gauges, then swap to the report when it lands.
+  if (audit.status === 'queued' || audit.status === 'running') {
+    return (
+      <div className="mx-auto max-w-xl">
+        <h1 className="font-display mb-4 text-xl font-semibold tracking-tight text-snow">
+          Audit in progress
+        </h1>
+        <AuditProgress auditId={auditId} onCompleted={setAudit} onFailed={setAudit} />
+      </div>
+    );
   }
-  if (!audit) return <p className="text-sm text-zinc-500">Loading…</p>;
 
   if (audit.status === 'failed') {
     return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6">
-        <h1 className="mb-2 text-lg font-semibold text-red-400">Audit failed</h1>
-        <p className="font-mono text-sm text-red-300">{audit.errorMessage}</p>
-        <Link to={`/projects/${audit.projectId}`} className="mt-4 inline-block text-sm text-indigo-400">
+      <div className="mx-auto max-w-xl rounded-xl border border-red-500/25 bg-red-500/10 p-6">
+        <h1 className="font-display mb-2 text-lg font-semibold text-red-400">Audit failed</h1>
+        <p className="font-mono text-sm leading-relaxed text-red-300">{audit.errorMessage}</p>
+        <Link to={`/projects/${audit.projectId}`} className="btn-ghost mt-5">
           Back to project
         </Link>
       </div>
@@ -66,13 +81,26 @@ export default function AuditReport() {
     visibleIssues.filter((i) => i.severity === sev),
   ]).filter(([, list]) => list.length > 0);
 
+  const subScores = [
+    ['Security', audit.securityScore],
+    ['Performance', audit.performanceScore],
+    ['Maintainability', audit.maintainabilityScore],
+    ['Debt', audit.debtScore],
+    ['Complexity', audit.complexityScore],
+  ];
+
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center gap-3">
+      <div className="rise mb-6 flex flex-wrap items-center gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Audit report</h1>
-          <p className="text-sm text-zinc-500">
-            <Link to={`/projects/${audit.projectId}`} className="text-indigo-400 hover:text-indigo-300">
+          <h1 className="font-display text-[22px] font-semibold tracking-tight text-snow">
+            Audit report
+          </h1>
+          <p className="mt-0.5 text-sm text-fog">
+            <Link
+              to={`/projects/${audit.projectId}`}
+              className="font-medium text-volt-400 hover:text-volt-300"
+            >
               {audit.projectName}
             </Link>
             {' · '}
@@ -81,55 +109,51 @@ export default function AuditReport() {
           </p>
         </div>
         {audit.incremental && (
-          <span className="rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-1 text-xs text-indigo-300">
-            Incremental audit — {audit.analyzedFileCount} analyzed, {audit.reusedFileCount} reused
+          <span className="rounded-md border border-volt-500/30 bg-volt-500/10 px-2.5 py-1 font-mono text-[11px] text-volt-300">
+            incremental — {audit.analyzedFileCount} analyzed, {audit.reusedFileCount} reused
           </span>
         )}
-        <Link
-          to={`/projects/${audit.projectId}/timeline`}
-          className="ml-auto rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:border-zinc-600"
-        >
+        <Link to={`/projects/${audit.projectId}/timeline`} className="btn-ghost ml-auto">
           Timeline
         </Link>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[auto_1fr]">
-        <div className="flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-          <ScoreGauge score={audit.overallScore} label="Overall" size={150} strokeWidth={10} />
+      <div className="rise mb-6 grid grid-cols-1 gap-3 lg:grid-cols-[260px_1fr]" style={{ animationDelay: '60ms' }}>
+        <div className="panel flex flex-col items-center justify-center gap-1 p-6">
+          <ScoreGauge score={audit.overallScore} size={168} strokeWidth={11} showBand />
+          <span className="microlabel mt-2">Overall score</span>
         </div>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-          <div className="mb-4 flex flex-wrap justify-around gap-4">
-            <ScoreGauge score={audit.securityScore} label="Security" size={84} strokeWidth={6} />
-            <ScoreGauge score={audit.performanceScore} label="Performance" size={84} strokeWidth={6} />
-            <ScoreGauge score={audit.maintainabilityScore} label="Maintainability" size={84} strokeWidth={6} />
-            <ScoreGauge score={audit.debtScore} label="Debt" size={84} strokeWidth={6} />
-            <ScoreGauge score={audit.complexityScore} label="Complexity" size={84} strokeWidth={6} />
+        <div className="panel flex flex-col p-6">
+          <div className="flex flex-wrap items-start justify-around gap-x-4 gap-y-6">
+            {subScores.map(([label, score]) => (
+              <ScoreGauge key={label} score={score} label={label} size={88} strokeWidth={6} />
+            ))}
           </div>
           {audit.summary && (
-            <p className="border-t border-zinc-800 pt-4 text-sm leading-relaxed text-zinc-400">
+            <p className="mt-auto border-t border-edge pt-4 text-sm leading-relaxed text-mist">
               {audit.summary}
             </p>
           )}
         </div>
       </div>
 
-      <div className="mb-5">
+      <div className="rise mb-6" style={{ animationDelay: '120ms' }}>
         <MetricsPanel staticMetrics={audit.staticMetrics} />
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold tracking-tight text-zinc-100">
-          Issues <span className="font-mono text-sm text-zinc-500">({audit.totalIssues})</span>
+      <div className="rise mb-4 flex flex-wrap items-center gap-2" style={{ animationDelay: '160ms' }}>
+        <h2 className="font-display text-lg font-semibold tracking-tight text-snow">
+          Issues <span className="font-mono text-sm font-normal text-fog">({audit.totalIssues})</span>
         </h2>
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
-              className={`rounded border px-2 py-0.5 font-mono text-[11px] ${
+              className={`rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors ${
                 categoryFilter === cat
-                  ? 'border-indigo-500/50 bg-indigo-500/10 text-indigo-300'
-                  : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'
+                  ? 'border-volt-500/40 bg-volt-500/10 text-volt-300'
+                  : 'border-edge text-fog hover:text-mist'
               }`}
             >
               {cat}
@@ -139,7 +163,7 @@ export default function AuditReport() {
             <select
               value={fileFilter || ''}
               onChange={(e) => setFileFilter(e.target.value || null)}
-              className="rounded border border-zinc-700 bg-zinc-900 px-2 py-0.5 font-mono text-[11px] text-zinc-400"
+              className="rounded-md border border-edge bg-ink-900 px-2 py-0.5 font-mono text-[11px] text-mist"
             >
               <option value="">all files</option>
               {files.map((f) => (
@@ -153,16 +177,16 @@ export default function AuditReport() {
       </div>
 
       {visibleIssues.length === 0 && (
-        <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 text-center text-sm text-zinc-500">
+        <p className="panel p-8 text-center text-sm text-fog">
           {audit.totalIssues === 0 ? 'No issues found. Clean audit.' : 'No issues match the filters.'}
         </p>
       )}
 
-      <div className="space-y-5">
+      <div className="space-y-6">
         {bySeverity.map(([sev, list]) => (
           <div key={sev}>
-            <h3 className="mb-2 font-mono text-xs uppercase tracking-wider text-zinc-500">
-              {sev} ({list.length})
+            <h3 className="microlabel mb-2">
+              {sev} · {list.length}
             </h3>
             <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
               {list.map((issue) => (

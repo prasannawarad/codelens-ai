@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Brand from './components/Brand';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -11,20 +12,19 @@ import Settings from './pages/Settings';
 function Shell({ children }) {
   const { user, logout } = useAuth();
   const navClass = ({ isActive }) =>
-    `px-3 py-1.5 rounded-md text-sm transition-colors ${
-      isActive ? 'text-zinc-100 bg-zinc-800/80' : 'text-zinc-400 hover:text-zinc-200'
+    `relative px-3 py-[19px] text-sm transition-colors ${
+      isActive
+        ? 'text-snow after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-volt-400'
+        : 'text-fog hover:text-mist'
     }`;
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-200">
-      <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/85 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="inline-block h-3 w-3 rounded-sm bg-indigo-500" />
-            <span className="font-mono text-sm font-semibold tracking-tight text-zinc-100">
-              CodeLens<span className="text-indigo-400">.ai</span>
-            </span>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-40 border-b border-edge bg-ink-950/80 backdrop-blur-md">
+        <div className="mx-auto flex h-[57px] max-w-7xl items-center gap-7 px-5">
+          <Link to="/" className="shrink-0">
+            <Brand />
           </Link>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center self-stretch">
             <NavLink to="/" end className={navClass}>
               Dashboard
             </NavLink>
@@ -33,17 +33,17 @@ function Shell({ children }) {
             </NavLink>
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm text-zinc-500">{user?.name}</span>
-            <button
-              onClick={logout}
-              className="rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-            >
+            <span className="hidden items-center gap-2 rounded-full border border-edge px-3 py-1 font-mono text-xs text-fog sm:inline-flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-volt-400" />
+              {user?.name}
+            </span>
+            <button onClick={logout} className="btn-ghost !py-1.5 text-xs">
               Sign out
             </button>
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-7xl px-5 py-8">{children}</main>
     </div>
   );
 }

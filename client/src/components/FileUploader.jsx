@@ -2,7 +2,11 @@ import { useState } from 'react';
 import api, { apiError } from '../api/client';
 import Modal from './Modal';
 
-const TABS = ['Paste', 'Upload', 'From URL'];
+const TABS = [
+  ['Paste', 'Paste code with a filename'],
+  ['Upload', 'Drag-drop or browse files'],
+  ['From URL', 'Fetch a raw file URL'],
+];
 
 // Add files to a project: paste with filename, drag-drop/browse upload, or a
 // raw GitHub URL. Repo-wide import lives in GitHubImport.
@@ -67,21 +71,19 @@ export default function FileUploader({ projectId, onClose, onAdded }) {
     }
   };
 
-  const inputClass =
-    'w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500';
-
   return (
     <Modal title="Add files" onClose={onClose} wide>
-      <div className="mb-4 flex gap-1 rounded-md border border-zinc-800 bg-zinc-950 p-1">
-        {TABS.map((t) => (
+      <div className="mb-5 flex gap-1 rounded-lg border border-edge bg-ink-950 p-1">
+        {TABS.map(([t, hint]) => (
           <button
             key={t}
             onClick={() => {
               setTab(t);
               setError(null);
             }}
-            className={`flex-1 rounded px-3 py-1.5 text-sm ${
-              tab === t ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+            title={hint}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm transition-colors ${
+              tab === t ? 'bg-ink-800 font-medium text-snow' : 'text-fog hover:text-mist'
             }`}
           >
             {t}
@@ -91,24 +93,22 @@ export default function FileUploader({ projectId, onClose, onAdded }) {
 
       {tab === 'Paste' && (
         <form onSubmit={handlePaste}>
+          <label className="microlabel mb-1.5 block">Filename</label>
           <input
-            placeholder="filename, e.g. src/routes/auth.js"
+            placeholder="src/routes/auth.js"
             value={filename}
             onChange={(e) => setFilename(e.target.value)}
-            className={`${inputClass} mb-3 font-mono`}
+            className="field mb-4 font-mono"
           />
+          <label className="microlabel mb-1.5 block">Code</label>
           <textarea
             placeholder="Paste code here"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={12}
-            className={`${inputClass} mb-3 font-mono text-xs`}
+            className="field mb-4 font-mono !text-xs leading-relaxed"
           />
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
+          <button type="submit" disabled={busy} className="btn-primary">
             {busy ? 'Adding…' : 'Add file'}
           </button>
         </form>
@@ -126,12 +126,12 @@ export default function FileUploader({ projectId, onClose, onAdded }) {
             setDragOver(false);
             handleFileList(e.dataTransfer.files);
           }}
-          className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-14 text-center ${
-            dragOver ? 'border-indigo-500 bg-indigo-500/5' : 'border-zinc-700'
+          className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-16 text-center transition-colors ${
+            dragOver ? 'border-volt-400 bg-volt-500/5' : 'border-edge-bright'
           }`}
         >
-          <p className="mb-3 text-sm text-zinc-400">Drag and drop source files here</p>
-          <label className="cursor-pointer rounded-md border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-600">
+          <p className="mb-4 text-sm text-fog">Drag and drop source files here, or</p>
+          <label className="btn-ghost cursor-pointer">
             Browse files
             <input
               type="file"
@@ -140,33 +140,26 @@ export default function FileUploader({ projectId, onClose, onAdded }) {
               onChange={(e) => handleFileList(e.target.files)}
             />
           </label>
-          {busy && <p className="mt-3 text-sm text-zinc-500">Uploading…</p>}
+          {busy && <p className="mt-4 text-sm text-fog">Uploading…</p>}
         </div>
       )}
 
       {tab === 'From URL' && (
         <form onSubmit={handleUrl}>
+          <label className="microlabel mb-1.5 block">Raw file URL</label>
           <input
             placeholder="https://raw.githubusercontent.com/owner/repo/main/src/index.js"
             value={rawUrl}
             onChange={(e) => setRawUrl(e.target.value)}
-            className={`${inputClass} mb-3 font-mono`}
+            className="field mb-4 font-mono"
           />
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
+          <button type="submit" disabled={busy} className="btn-primary">
             {busy ? 'Fetching…' : 'Fetch and add'}
           </button>
         </form>
       )}
 
-      {error && (
-        <p className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <p className="alert-error mt-4">{error}</p>}
     </Modal>
   );
 }

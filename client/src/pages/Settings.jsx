@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
 import api, { apiError } from '../api/client';
 
+function Section({ title, description, children }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 py-7 md:grid-cols-[240px_1fr]">
+      <div>
+        <h2 className="text-sm font-semibold text-snow">{title}</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-fog">{description}</p>
+      </div>
+      <div className="panel p-5">{children}</div>
+    </div>
+  );
+}
+
 export default function Settings() {
   const [me, setMe] = useState(null);
   const [name, setName] = useState('');
@@ -52,56 +64,58 @@ export default function Settings() {
     }
   };
 
-  const inputClass =
-    'w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500';
-
   return (
-    <div className="max-w-xl">
-      <h1 className="mb-6 text-xl font-semibold tracking-tight text-zinc-100">Settings</h1>
-      <form onSubmit={save} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
-        <label className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClass} mb-4`} />
+    <div className="rise mx-auto max-w-3xl">
+      <h1 className="font-display text-[26px] font-semibold tracking-tight text-snow">Settings</h1>
+      <p className="mt-1 text-sm text-fog">Profile and integrations for your workspace.</p>
 
-        <label className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">Email</label>
-        <input value={me?.email || ''} disabled className={`${inputClass} mb-4 opacity-60`} />
+      {(message || error) && (
+        <p className={`${error ? 'alert-error' : 'alert-ok'} mt-5`}>{error || message}</p>
+      )}
 
-        <label className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">
-          GitHub personal access token
-        </label>
-        <input
-          type="password"
-          placeholder={me?.hasGithubToken ? '•••••••• (token stored)' : 'ghp_… (optional)'}
-          value={githubToken}
-          onChange={(e) => setGithubToken(e.target.value)}
-          className={`${inputClass} mb-2 font-mono`}
-        />
-        <p className="mb-4 text-xs leading-relaxed text-zinc-500">
-          Used for importing private repositories and to raise GitHub API rate limits. A
-          fine-grained token with read-only Contents access is enough. Stored server-side and
-          never sent back to the browser.
-        </p>
+      <form onSubmit={save} className="mt-2 divide-y divide-edge">
+        <Section title="Profile" description="How you appear in the workspace.">
+          <label className="microlabel mb-1.5 block">Name</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className="field mb-4" />
+          <label className="microlabel mb-1.5 block">Email</label>
+          <input value={me?.email || ''} disabled className="field opacity-50" />
+        </Section>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {busy ? 'Saving…' : 'Save'}
-          </button>
+        <Section
+          title="GitHub access"
+          description="A personal access token unlocks private-repo imports and raises API rate limits. Fine-grained, read-only Contents access is enough."
+        >
+          <label className="microlabel mb-1.5 block">
+            Personal access token
+            {me?.hasGithubToken && (
+              <span className="ml-2 rounded border border-volt-500/30 bg-volt-500/10 px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-volt-300">
+                token stored
+              </span>
+            )}
+          </label>
+          <input
+            type="password"
+            placeholder={me?.hasGithubToken ? '•••••••• (enter a new token to replace)' : 'ghp_… or github_pat_…'}
+            value={githubToken}
+            onChange={(e) => setGithubToken(e.target.value)}
+            className="field mb-2 font-mono"
+            autoComplete="off"
+          />
+          <p className="text-xs leading-relaxed text-fog">
+            Stored server-side and never sent back to the browser.
+          </p>
           {me?.hasGithubToken && (
-            <button
-              type="button"
-              onClick={clearToken}
-              disabled={busy}
-              className="rounded-md border border-zinc-700 px-4 py-2 text-sm text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
-            >
+            <button type="button" onClick={clearToken} disabled={busy} className="btn-ghost mt-3 !py-1.5 text-xs">
               Remove token
             </button>
           )}
+        </Section>
+
+        <div className="py-6">
+          <button type="submit" disabled={busy} className="btn-primary">
+            {busy ? 'Saving…' : 'Save changes'}
+          </button>
         </div>
-        {message && <p className="mt-3 text-sm text-emerald-400">{message}</p>}
-        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       </form>
     </div>
   );

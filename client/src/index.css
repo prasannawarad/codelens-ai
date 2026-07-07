@@ -1,1 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 @import 'tailwindcss';
+
+@theme {
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-display: 'Bricolage Grotesque', 'IBM Plex Sans', sans-serif;
+
+  /* Ink: page + panel surfaces (deep blue-black graphite) */
+  --color-ink-950: #08090c;
+  --color-ink-900: #0d0f15;
+  --color-ink-850: #11141b;
+  --color-ink-800: #171b24;
+
+  /* Hairlines + text */
+  --color-edge: #1f2431;
+  --color-edge-bright: #2c3345;
+  --color-fog: #7d8494;
+  --color-mist: #b6bcc9;
+  --color-snow: #edeff4;
+
+  /* Volt: the lens accent */
+  --color-volt-300: #d3f76a;
+  --color-volt-400: #bdef3f;
+  --color-volt-500: #a4d926;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-ink-950);
+  color: var(--color-mist);
+  font-family: var(--font-sans);
+  /* Atmosphere: volt glow bleeding from the top + blueprint grid */
+  background-image:
+    radial-gradient(ellipse 70% 42% at 50% -12%, rgb(189 239 63 / 0.06), transparent 70%),
+    linear-gradient(rgb(237 239 244 / 0.017) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(237 239 244 / 0.017) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    36px 36px,
+    36px 36px;
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgb(189 239 63 / 0.25);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-volt-400);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-edge);
+  border-radius: 5px;
+  border: 2px solid var(--color-ink-950);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-edge-bright);
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-edge bg-ink-900/85;
+  }
+  .panel-header {
+    @apply flex items-center justify-between gap-3 border-b border-edge px-4 py-2.5;
+  }
+  .microlabel {
+    @apply font-mono text-[10.5px] font-medium uppercase tracking-[0.16em] text-fog;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-volt-400 px-4 py-2 text-sm font-semibold text-ink-950 transition-colors hover:bg-volt-300 disabled:pointer-events-none disabled:opacity-40;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-edge bg-ink-900/60 px-3.5 py-2 text-sm text-mist transition-colors hover:border-edge-bright hover:text-snow disabled:pointer-events-none disabled:opacity-40;
+  }
+  .field {
+    @apply w-full rounded-lg border border-edge bg-ink-950 px-3 py-2 text-sm text-snow placeholder:text-fog/60 transition-colors focus:border-volt-500 focus:outline-none;
+  }
+  .alert-error {
+    @apply rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-400;
+  }
+  .alert-ok {
+    @apply rounded-lg border border-volt-500/25 bg-volt-500/10 px-3 py-2 text-sm text-volt-300;
+  }
+}
+
+/* Staggered entrance — apply .rise with inline animation-delay */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Gauge arc sweep */
+@keyframes gauge-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.pulse-dot {
+  animation: gauge-pulse 1.6s ease-in-out infinite;
+}

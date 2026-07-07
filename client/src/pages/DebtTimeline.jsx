@@ -16,42 +16,43 @@ export default function DebtTimeline() {
       .catch((err) => setError(apiError(err, 'Failed to load audit history')));
   }, [id]);
 
-  if (error) {
-    return <p className="rounded-md border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">{error}</p>;
-  }
-  if (!audits) return <p className="text-sm text-zinc-500">Loading…</p>;
+  if (error) return <p className="alert-error">{error}</p>;
+  if (!audits) return <p className="text-sm text-fog">Loading…</p>;
 
   return (
     <div>
-      <div className="mb-5 flex items-center gap-3">
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Debt timeline</h1>
-        <Link
-          to={`/projects/${id}`}
-          className="ml-auto rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:border-zinc-600"
-        >
+      <div className="rise mb-6 flex flex-wrap items-center gap-3">
+        <div>
+          <h1 className="font-display text-[22px] font-semibold tracking-tight text-snow">
+            Debt timeline
+          </h1>
+          <p className="mt-0.5 text-sm text-fog">
+            Overall and debt scores across every completed audit — the trend is the point.
+          </p>
+        </div>
+        <Link to={`/projects/${id}`} className="btn-ghost ml-auto">
           Back to project
         </Link>
       </div>
 
-      <div className="mb-5 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+      <div className="rise panel mb-6 p-4" style={{ animationDelay: '60ms' }}>
         <DebtChart audits={audits} />
       </div>
 
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-        <div className="border-b border-zinc-800 px-4 py-2.5">
-          <h2 className="text-sm font-semibold text-zinc-200">Audit history</h2>
+      <div className="rise panel overflow-hidden" style={{ animationDelay: '120ms' }}>
+        <div className="panel-header">
+          <h2 className="text-sm font-semibold text-snow">Audit history</h2>
+          <span className="font-mono text-[11px] text-fog">{audits.length} runs</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="text-xs uppercase tracking-wider text-zinc-500">
-                <th className="px-4 py-2 font-medium">When</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Overall</th>
-                <th className="px-4 py-2 font-medium">Debt</th>
-                <th className="px-4 py-2 font-medium">Issues</th>
-                <th className="px-4 py-2 font-medium">Mode</th>
-                <th className="px-4 py-2 font-medium"></th>
+              <tr>
+                {['When', 'Status', 'Overall', 'Debt', 'Issues', 'Mode', ''].map((h, i) => (
+                  <th key={i} className="microlabel px-4 py-2.5 !font-medium">
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -61,9 +62,9 @@ export default function DebtTimeline() {
                 .map((a) => {
                   const band = scoreBand(a.overallScore);
                   return (
-                    <tr key={a.id} className="border-t border-zinc-800/60">
-                      <td className="px-4 py-2 text-zinc-400">{timeAgo(a.completedAt || a.createdAt)}</td>
-                      <td className="px-4 py-2">
+                    <tr key={a.id} className="border-t border-edge/70 transition-colors hover:bg-ink-850">
+                      <td className="px-4 py-2.5 text-fog">{timeAgo(a.completedAt || a.createdAt)}</td>
+                      <td className="px-4 py-2.5">
                         <span
                           className={`font-mono text-xs ${
                             a.status === 'completed'
@@ -76,24 +77,27 @@ export default function DebtTimeline() {
                           {a.status}
                         </span>
                       </td>
-                      <td className={`px-4 py-2 font-mono ${band.text}`}>
+                      <td className={`px-4 py-2.5 font-mono font-semibold ${band.text}`}>
                         {a.overallScore != null ? Math.round(a.overallScore) : '—'}
                       </td>
-                      <td className="px-4 py-2 font-mono text-zinc-300">
+                      <td className="px-4 py-2.5 font-mono text-mist">
                         {a.debtScore != null ? Math.round(a.debtScore) : '—'}
                       </td>
-                      <td className="px-4 py-2 font-mono text-zinc-300">
+                      <td className="px-4 py-2.5 font-mono text-mist">
                         {a.status === 'completed' ? `${a.totalIssues} (${a.criticalCount} crit)` : '—'}
                       </td>
-                      <td className="px-4 py-2 text-xs text-zinc-500">
+                      <td className="px-4 py-2.5 font-mono text-xs text-fog">
                         {a.incremental
-                          ? `incremental ${a.analyzedFileCount}/${a.analyzedFileCount + a.reusedFileCount}`
+                          ? `incr ${a.analyzedFileCount}/${a.analyzedFileCount + a.reusedFileCount}`
                           : 'full'}
                         {a.trigger === 'ci' ? ' · ci' : ''}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2.5">
                         {a.status === 'completed' && (
-                          <Link to={`/audits/${a.id}`} className="text-xs text-indigo-400 hover:text-indigo-300">
+                          <Link
+                            to={`/audits/${a.id}`}
+                            className="text-xs font-medium text-volt-400 hover:text-volt-300"
+                          >
                             View report
                           </Link>
                         )}

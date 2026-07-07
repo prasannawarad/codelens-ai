@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiError } from '../api/client';
+import AuthLayout from '../components/AuthLayout';
 
 export default function Register() {
   const { register } = useAuth();
@@ -25,65 +26,66 @@ export default function Register() {
       navigate('/', { replace: true });
     } catch (err) {
       setError(apiError(err, 'Registration failed'));
-    } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex items-center justify-center gap-2">
-          <span className="inline-block h-3.5 w-3.5 rounded-sm bg-indigo-500" />
-          <span className="font-mono text-lg font-semibold tracking-tight text-zinc-100">
-            CodeLens<span className="text-indigo-400">.ai</span>
-          </span>
-        </div>
-        <form onSubmit={submit} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-          <h1 className="mb-5 text-lg font-semibold tracking-tight text-zinc-100">Create account</h1>
-          <label className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">Name</label>
-          <input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mb-4 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
-          />
-          <label className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">Email</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mb-4 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
-          />
-          <label className="mb-1 block text-xs uppercase tracking-wider text-zinc-500">Password</label>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mb-4 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
-          />
-          {error && (
-            <p className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-              {error}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {busy ? 'Creating…' : 'Create account'}
-          </button>
-          <p className="mt-4 text-center text-sm text-zinc-500">
-            Already registered?{' '}
-            <Link to="/login" className="text-indigo-400 hover:text-indigo-300">
-              Sign in
-            </Link>
-          </p>
-        </form>
-      </div>
-    </div>
+    <AuthLayout>
+      <form onSubmit={submit} className="rise">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-snow">
+          Create your account
+        </h1>
+        <p className="mb-7 mt-1.5 text-sm text-fog">
+          A workspace for every codebase you want to keep honest.
+        </p>
+
+        <label className="microlabel mb-1.5 block" htmlFor="name">
+          Name
+        </label>
+        <input
+          id="name"
+          required
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="field mb-4"
+        />
+        <label className="microlabel mb-1.5 block" htmlFor="email">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="field mb-4"
+        />
+        <label className="microlabel mb-1.5 block" htmlFor="password">
+          Password
+        </label>
+        <input
+          id="password"
+          type="password"
+          required
+          minLength={8}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="field mb-1.5"
+        />
+        <p className="mb-5 text-xs text-fog/80">At least 8 characters.</p>
+        {error && <p className="alert-error mb-4">{error}</p>}
+        <button type="submit" disabled={busy} className="btn-primary w-full">
+          {busy ? 'Creating…' : 'Create account'}
+        </button>
+        <p className="mt-5 text-center text-sm text-fog">
+          Already registered?{' '}
+          <Link to="/login" className="font-medium text-volt-400 hover:text-volt-300">
+            Sign in
+          </Link>
+        </p>
+      </form>
+    </AuthLayout>
   );
 }

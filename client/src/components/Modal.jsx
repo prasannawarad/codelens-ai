@@ -1,23 +1,23 @@
 export default function Modal({ title, onClose, children, wide = false }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-[10vh]"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-ink-950/70 p-4 pt-[12vh] backdrop-blur-sm"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className={`w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl`}
+        className={`rise w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-xl border border-edge-bright bg-ink-900 shadow-[0_24px_80px_rgb(0_0_0/0.55)]`}
       >
-        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-          <h2 className="text-sm font-semibold text-zinc-100">{title}</h2>
+        <div className="flex items-center justify-between border-b border-edge px-5 py-3.5">
+          <h2 className="font-display text-[15px] font-semibold text-snow">{title}</h2>
           <button
             onClick={onClose}
-            className="rounded px-2 py-0.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+            className="rounded-md px-2 py-0.5 text-lg leading-none text-fog transition-colors hover:bg-ink-800 hover:text-snow"
             aria-label="Close"
           >
             ×
           </button>
         </div>
-        <div className="p-4">{children}</div>
+        <div className="p-5">{children}</div>
       </div>
     </div>
   );
