@@ -10,6 +10,14 @@ app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
+app.use('/api/auth', require('./routes/auth'));
+
+// Central error handler — no stack traces to clients.
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 module.exports = app;
 
 if (require.main === module) {
