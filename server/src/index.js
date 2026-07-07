@@ -10,7 +10,10 @@ app.use(express.json({ limit: '10mb' }));
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
+const authMiddleware = require('./middleware/auth');
+
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/projects', authMiddleware, require('./routes/projects'));
 
 // Central error handler — no stack traces to clients.
 app.use((err, req, res, next) => {
