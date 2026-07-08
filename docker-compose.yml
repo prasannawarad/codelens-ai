@@ -1,0 +1,68 @@
+# One-command local stack: docker compose up --build
+# App on http://localhost:5173, API on http://localhost:3001.
+# Runs in demo audit mode (no Gemini key needed); set GEMINI_API_KEY to go live.
+# Seed the demo account with: docker compose exec api npm run seed
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: codelens
+      POSTGRES_DB: codelens
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  api:
+    build: ./server
+    ports:
+      - '3001:3001'
+    environment: &server-env
+      DATABASE_URL: postgresql://postgres:codelens@db:5432/codelens
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: local-compose-only-secret-do-not-deploy-0123456789abcdef
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-demo}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      CORS_ORIGIN: http://localhost:5173
+      PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./server
+    command: ['node', 'src/worker.js']
+    environment: *server-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started # api runs migrate deploy first
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: http://localhost:3001
+    ports:
+      - '5173:80'
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
