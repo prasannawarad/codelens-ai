@@ -22,6 +22,8 @@ export default function Settings() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const [stats, setStats] = useState(null);
+
   useEffect(() => {
     api
       .get('/api/auth/me')
@@ -30,6 +32,10 @@ export default function Settings() {
         setName(data.name);
       })
       .catch((err) => setError(apiError(err)));
+    api
+      .get('/api/admin/stats')
+      .then(({ data }) => setStats(data))
+      .catch(() => {});
   }, []);
 
   const save = async (e) => {
@@ -115,6 +121,35 @@ export default function Settings() {
           </button>
         </div>
       </form>
+
+      {stats && (
+        <div className="grid grid-cols-1 gap-4 border-t border-edge py-7 md:grid-cols-[240px_1fr]">
+          <div>
+            <h2 className="text-sm font-semibold text-snow">System</h2>
+            <p className="mt-1 text-[13px] leading-relaxed text-fog">
+              Live queue and audit pipeline health for your account.
+            </p>
+          </div>
+          <div className="panel grid grid-cols-2 gap-x-6 gap-y-4 p-5 sm:grid-cols-3">
+            {[
+              ['Queue waiting', stats.queue ? stats.queue.waiting : 'redis down'],
+              ['Queue active', stats.queue ? stats.queue.active : '—'],
+              ['Queue failed', stats.queue ? stats.queue.failed : '—'],
+              ['Audits completed', stats.audits.completed ?? 0],
+              ['Audits failed', stats.audits.failed ?? 0],
+              [
+                'Avg audit time',
+                stats.avgAuditMs != null ? `${(stats.avgAuditMs / 1000).toFixed(1)}s` : '—',
+              ],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <p className="microlabel">{label}</p>
+                <p className="mt-1 font-mono text-lg font-semibold text-snow">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

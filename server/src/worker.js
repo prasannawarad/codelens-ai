@@ -137,12 +137,15 @@ if (require.main === module) {
   const assertEnv = require('./lib/assertEnv');
   assertEnv(['DATABASE_URL', 'REDIS_URL', 'GEMINI_API_KEY']);
 
+  const logger = require('./lib/logger');
   const worker = new Worker('audits', processAudit, { connection, concurrency: 2 });
-  worker.on('completed', (job) => console.log(`[worker] audit job ${job.id} completed`));
-  worker.on('failed', (job, err) =>
-    console.error(`[worker] audit job ${job?.id} failed: ${err.message}`)
+  worker.on('completed', (job, result) =>
+    logger.info({ jobId: job.id, ...result }, 'audit job completed')
   );
-  console.log('[worker] CodeLens audit worker listening on queue "audits"');
+  worker.on('failed', (job, err) =>
+    logger.error({ jobId: job?.id, err: err.message }, 'audit job failed')
+  );
+  logger.info('CodeLens audit worker listening on queue "audits"');
 
   const shutdown = async () => {
     await worker.close();
