@@ -14,5 +14,7 @@ COPY scripts ./scripts
 COPY eval ./eval
 
 EXPOSE 3001
-# API by default; the worker service overrides the command.
-CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
+# One image, two roles: the API (default) runs migrations then serves;
+# a service with SERVICE_ROLE=worker runs the BullMQ worker instead.
+# (docker-compose overrides the command explicitly; Railway uses this switch.)
+CMD ["sh", "-c", "if [ \"$SERVICE_ROLE\" = \"worker\" ]; then node src/worker.js; else npx prisma migrate deploy && node src/index.js; fi"]

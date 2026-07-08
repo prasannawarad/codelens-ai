@@ -1,0 +1,22 @@
+# Railway deploys from the repo root (monorepo), so this mirrors
+# server/Dockerfile with a root build context. Selected on Railway via the
+# RAILWAY_DOCKERFILE_PATH service variable.
+FROM node:20-alpine
+# Prisma's query/schema engines link against OpenSSL, which alpine omits.
+RUN apk add --no-cache openssl
+WORKDIR /app
+
+COPY server/package*.json ./
+RUN npm ci
+
+COPY server/prisma ./prisma
+RUN npx prisma generate
+
+COPY server/src ./src
+COPY server/scripts ./scripts
+COPY server/eval ./eval
+
+EXPOSE 3001
+# One image, two roles: API (default) migrates then serves; SERVICE_ROLE=worker
+# runs the BullMQ worker.
+CMD ["sh", "-c", "if [ \"$SERVICE_ROLE\" = \"worker\" ]; then node src/worker.js; else npx prisma migrate deploy && node src/index.js; fi"]

@@ -1,5 +1,7 @@
 # CodeLens AI
 
+**Live demo:** [codelens-ai-olive.vercel.app](https://codelens-ai-olive.vercel.app) — log in as `demo@codelens.dev` / `codelens-demo` (seeded project with a three-week audit history), or register your own account. API: [api-production-b5a7.up.railway.app](https://api-production-b5a7.up.railway.app/health). Runs in demo audit mode (deterministic heuristics).
+
 AI code audit and technical-debt tracking platform — SonarQube + LLM energy on a free-tier stack. Create projects, add code (paste, upload, or GitHub repo import), run audits that combine **deterministic static metrics** with **Gemini LLM analysis**, get a weighted 0–100 score and per-file issue list, then fix, re-audit and watch the debt trend. Audits run asynchronously on a BullMQ/Redis queue, and re-audits are **incremental** — only changed files (content-hash diff) are re-analyzed.
 
 | | |
@@ -185,10 +187,12 @@ Unit tests mock Prisma, the queue and the Gemini SDK — no live services needed
 
 ## Deployment
 
-- **Database:** Supabase (free tier) → `DATABASE_URL`. Run `npx prisma db push` once.
-- **Redis:** Upstash (free tier) → `REDIS_URL` (`rediss://…`). TLS is handled automatically (`maxRetriesPerRequest: null` + `rejectUnauthorized: false` are required by BullMQ/Upstash and already set).
-- **API + worker on Railway:** either **two services** from the same repo (start commands `cd server && npm start` and `cd server && npm run worker`) or a single **Procfile**-based deploy (`web` + `worker` process types — see `Procfile`). Set all `server/.env.example` vars on both; set `CORS_ORIGIN` to your Vercel URL.
-- **Client on Vercel:** root `client/`, framework Vite, env `VITE_API_URL` = Railway API URL.
+The live deployment runs on **Railway** (Postgres + Redis + `api` + `worker` services, all four in one project) and **Vercel** (client). To reproduce:
+
+- **Railway:** create a project, add Postgres + Redis, then two services deployed from the repo with `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway` (monorepo root context). The `api` service gets `DATABASE_URL`/`REDIS_URL` references, `JWT_SECRET`, `GEMINI_API_KEY`, `CORS_ORIGIN` (your Vercel URL); the `worker` service gets the same plus `SERVICE_ROLE=worker` (one image, two roles). Migrations run on boot (`prisma migrate deploy`).
+- **Client on Vercel:** root `client/`, framework Vite, env `VITE_API_URL` = the Railway API URL. `client/vercel.json` provides the SPA fallback rewrite.
+- **Alternative managed stores:** Supabase Postgres and Upstash Redis (`rediss://…`) drop in via the same env vars — BullMQ's Upstash TLS requirements (`maxRetriesPerRequest: null`, `rejectUnauthorized: false`) are already handled.
+- Seed the live demo account with `DATABASE_URL=<public-url> npm run seed` from `server/`.
 
 ## Environment variables
 
