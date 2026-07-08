@@ -46,6 +46,14 @@ cd e2e && npm test            # browser flow (stack must be running)
 `server/.env.example` and `client/.env.example` list everything. Local dev uses
 Homebrew Postgres (`postgresql://prasannawarad@localhost:5432/codelens`) and local Redis.
 
+## Deployment (live)
+
+- Client: https://codelens-ai-olive.vercel.app (Vercel project `codelens-ai`).
+- API + worker + Postgres + Redis: Railway project `codelens-ai`, deployed via
+  `railway up --service api|worker` with `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway`
+  (the CLI uploads the git root, so `server/Dockerfile` is ignored there).
+- Live stack runs `GEMINI_API_KEY=demo`; swap the Railway variable for real AI analysis.
+
 ## Gotchas added later
 
 - The eval golden set (`server/eval/golden/`) is intentionally flawed code — never "fix"
