@@ -9,6 +9,7 @@
     "start": "node src/index.js",
     "worker": "node src/worker.js",
     "seed": "node scripts/seed.js",
+    "eval": "node eval/run.js",
     "test": "jest --runInBand"
   },
   "jest": {
@@ -28,7 +29,9 @@
     "express": "^4.21.2",
     "express-rate-limit": "^8.5.2",
     "ioredis": "^5.4.1",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0"
   },
   "devDependencies": {
     "jest": "^29.7.0",

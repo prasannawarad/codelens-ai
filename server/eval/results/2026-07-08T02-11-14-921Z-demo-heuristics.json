@@ -1,0 +1,172 @@
+{
+  "engine": "demo-heuristics",
+  "ranAt": "2026-07-08T02:11:14.921Z",
+  "summary": {
+    "recallPct": 30.8,
+    "precisionPct": 100,
+    "labelsTotal": 13,
+    "labelsFound": 4,
+    "findingsTotal": 4,
+    "findingsMatched": 4,
+    "f1Pct": 47.1
+  },
+  "categories": {
+    "security": {
+      "labelsTotal": 4,
+      "labelsFound": 2,
+      "recallPct": 50
+    },
+    "bug": {
+      "labelsTotal": 2,
+      "labelsFound": 0,
+      "recallPct": 0
+    },
+    "performance": {
+      "labelsTotal": 2,
+      "labelsFound": 0,
+      "recallPct": 0
+    },
+    "style": {
+      "labelsTotal": 3,
+      "labelsFound": 1,
+      "recallPct": 33.3
+    },
+    "debt": {
+      "labelsTotal": 2,
+      "labelsFound": 1,
+      "recallPct": 50
+    }
+  },
+  "cases": [
+    {
+      "id": "sec-eval",
+      "labelsFound": 1,
+      "labelsTotal": 1,
+      "findingsTotal": 1,
+      "missed": [],
+      "falsePositives": []
+    },
+    {
+      "id": "sec-secret",
+      "labelsFound": 1,
+      "labelsTotal": 1,
+      "findingsTotal": 1,
+      "missed": [],
+      "falsePositives": []
+    },
+    {
+      "id": "sec-sqli",
+      "labelsFound": 0,
+      "labelsTotal": 1,
+      "findingsTotal": 0,
+      "missed": [
+        "security:sql"
+      ],
+      "falsePositives": []
+    },
+    {
+      "id": "sec-xss",
+      "labelsFound": 0,
+      "labelsTotal": 1,
+      "findingsTotal": 0,
+      "missed": [
+        "security:xss"
+      ],
+      "falsePositives": []
+    },
+    {
+      "id": "bug-null",
+      "labelsFound": 0,
+      "labelsTotal": 1,
+      "findingsTotal": 0,
+      "missed": [
+        "bug:null"
+      ],
+      "falsePositives": []
+    },
+    {
+      "id": "bug-offbyone",
+      "labelsFound": 0,
+      "labelsTotal": 1,
+      "findingsTotal": 0,
+      "missed": [
+        "bug:off-by-one"
+      ],
+      "falsePositives": []
+    },
+    {
+      "id": "perf-quadratic",
+      "labelsFound": 0,
+      "labelsTotal": 1,
+      "findingsTotal": 0,
+      "missed": [
+        "performance:quadratic"
+      ],
+      "falsePositives": []
+    },
+    {
+      "id": "perf-leak",
+      "labelsFound": 0,
+      "labelsTotal": 1,
+      "findingsTotal": 0,
+      "missed": [
+        "performance:leak"
+      ],
+      "falsePositives": []
+    },
+    {
+      "id": "style-dup",
+      "labelsFound": 0,
+      "labelsTotal": 1,
+      "findingsTotal": 0,
+      "missed": [
+        "style:duplicat"
+      ],
+      "falsePositives": []
+    },
+    {
+      "id": "style-dead",
+      "labelsFound": 0,
+      "labelsTotal": 1,
+      "findingsTotal": 0,
+      "missed": [
+        "style:dead"
+      ],
+      "falsePositives": []
+    },
+    {
+      "id": "debt-noerr",
+      "labelsFound": 0,
+      "labelsTotal": 1,
+      "findingsTotal": 0,
+      "missed": [
+        "debt:error handling"
+      ],
+      "falsePositives": []
+    },
+    {
+      "id": "debt-todo",
+      "labelsFound": 2,
+      "labelsTotal": 2,
+      "findingsTotal": 2,
+      "missed": [],
+      "falsePositives": []
+    },
+    {
+      "id": "clean-utils",
+      "labelsFound": 0,
+      "labelsTotal": 0,
+      "findingsTotal": 0,
+      "missed": [],
+      "falsePositives": []
+    },
+    {
+      "id": "clean-math",
+      "labelsFound": 0,
+      "labelsTotal": 0,
+      "findingsTotal": 0,
+      "missed": [],
+      "falsePositives": []
+    }
+  ]
+}

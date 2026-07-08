@@ -1,0 +1,89 @@
+[
+  {
+    "id": "sec-eval",
+    "file": "sec-eval.js",
+    "labels": [
+      { "category": "security", "line": 5, "keywords": ["eval", "code execution", "injection"] }
+    ]
+  },
+  {
+    "id": "sec-secret",
+    "file": "sec-secret.js",
+    "labels": [
+      { "category": "security", "line": 3, "keywords": ["secret", "hardcoded", "credential", "api key"] }
+    ]
+  },
+  {
+    "id": "sec-sqli",
+    "file": "sec-sqli.js",
+    "labels": [
+      { "category": "security", "line": 4, "keywords": ["sql", "injection", "parameter", "concaten"] }
+    ]
+  },
+  {
+    "id": "sec-xss",
+    "file": "sec-xss.js",
+    "labels": [
+      { "category": "security", "line": 5, "keywords": ["xss", "cross-site", "escap", "sanitiz"] }
+    ]
+  },
+  {
+    "id": "bug-null",
+    "file": "bug-null.js",
+    "labels": [
+      { "category": "bug", "line": 2, "keywords": ["null", "undefined", "missing", "optional"] }
+    ]
+  },
+  {
+    "id": "bug-offbyone",
+    "file": "bug-offbyone.js",
+    "labels": [
+      { "category": "bug", "line": 3, "keywords": ["off-by-one", "bounds", "out of", "<=", "NaN"] }
+    ]
+  },
+  {
+    "id": "perf-quadratic",
+    "file": "perf-quadratic.js",
+    "labels": [
+      { "category": "performance", "line": 4, "keywords": ["quadratic", "o(n", "nested", "filter inside", "set"] }
+    ]
+  },
+  {
+    "id": "perf-leak",
+    "file": "perf-leak.js",
+    "labels": [
+      { "category": "performance", "line": 5, "keywords": ["leak", "listener", "interval", "accumulat"] }
+    ]
+  },
+  {
+    "id": "style-dup",
+    "file": "style-dup.js",
+    "labels": [
+      { "category": "style", "line": 8, "keywords": ["duplicat", "repeat", "identical", "extract", "dry"] }
+    ]
+  },
+  {
+    "id": "style-dead",
+    "file": "style-dead.js",
+    "labels": [
+      { "category": "style", "line": 5, "keywords": ["dead", "unreachable", "unused"] }
+    ]
+  },
+  {
+    "id": "debt-noerr",
+    "file": "debt-noerr.js",
+    "labels": [
+      { "category": "debt", "line": 9, "keywords": ["error handling", "try", "catch", "unhandled", "reject"] }
+    ]
+  },
+  {
+    "id": "debt-todo",
+    "file": "debt-todo.py",
+    "labels": [
+      { "category": "debt", "line": 2, "keywords": ["todo", "fixme"] },
+      { "category": "style", "line": 5, "keywords": ["print", "debug", "log"] }
+    ]
+  },
+  { "id": "clean-utils", "file": "clean-utils.js", "labels": [] },
+  { "id": "clean-math", "file": "clean-math.py", "labels": [] }
+]
