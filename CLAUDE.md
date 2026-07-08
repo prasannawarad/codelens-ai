@@ -10,11 +10,14 @@ contracts and the four invariants (INV-1..4); don't deviate from it casually.
 ```bash
 cd server && npm run dev      # API :3001 (never runs audits inline)
 cd server && npm run worker   # BullMQ worker — separate process, required for audits
-cd server && npm test         # Jest, 122 tests, no live services needed
+cd server && npm test         # Jest, 131 tests, no live services needed
 cd server && npm run seed     # demo account: demo@codelens.dev / codelens-demo
+cd server && npm run eval     # eval harness vs golden set (GEMINI_API_KEY=demo ok)
 cd client && npm run dev      # Vite :5173
 cd client && npm run build    # must stay clean
-cd server && npx prisma db push   # after schema changes
+cd server && npx prisma migrate dev   # after schema changes (migrations are committed)
+docker compose up --build    # full stack in containers (demo mode)
+cd e2e && npm test            # browser flow (stack must be running)
 ```
 
 ## Architecture (the parts that bite)
@@ -43,9 +46,16 @@ cd server && npx prisma db push   # after schema changes
 `server/.env.example` and `client/.env.example` list everything. Local dev uses
 Homebrew Postgres (`postgresql://prasannawarad@localhost:5432/codelens`) and local Redis.
 
+## Gotchas added later
+
+- The eval golden set (`server/eval/golden/`) is intentionally flawed code — never "fix"
+  those files; labels in `golden.json` reference exact line numbers.
+- CI runs the demo-engine eval as a regression gate; changing demo heuristics in
+  `gemini.js` can break it.
+- `server/openapi.yaml` is the API contract artifact — update it with route changes.
+- Docker server image needs `apk add openssl` (Prisma engines) — already in the Dockerfile.
+
 ## What does NOT exist
 
-- No client-side test suite (server Jest only; client is verified by `npm run build`).
-- No migrations directory — schema is applied with `prisma db push`.
-- No seeded demo account; register locally.
+- No client-side unit tests (server Jest + browser e2e in `e2e/`; client build must stay clean).
 - No webhook auto-sync, comments, or multi-user sharing (explicitly out of scope).

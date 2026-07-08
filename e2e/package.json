@@ -1,0 +1,12 @@
+{
+  "name": "codelens-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser end-to-end flow: register → project → files → audit → report → resolve → timeline",
+  "scripts": {
+    "test": "node flow.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

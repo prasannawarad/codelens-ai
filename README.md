@@ -25,16 +25,23 @@ AI code audit and technical-debt tracking platform — SonarQube + LLM energy on
 
 Two server processes, one codebase: the API never runs audits inline and never imports the worker. The worker consumes `audits` jobs, computes static metrics for all files, calls Gemini for changed files only, and persists Issues + Audit scores + project debt score in **one Prisma transaction**.
 
-## Quick start (local)
+## Quick start
 
-Prerequisites: Node 20+, PostgreSQL, Redis.
+**Docker (one command):**
+
+```bash
+docker compose up --build          # app on :5173, API on :3001, demo audit mode
+docker compose exec api npm run seed   # optional: demo account + audit history
+```
+
+**Bare metal:** Node 20+, PostgreSQL, Redis.
 
 ```bash
 # server
 cd server
 npm install
 cp .env.example .env        # fill in DATABASE_URL, JWT_SECRET, REDIS_URL, GEMINI_API_KEY
-npx prisma db push          # creates tables
+npx prisma migrate deploy   # applies committed migrations
 npm run dev                 # API on :3001
 
 # worker (second terminal)
@@ -77,7 +84,10 @@ All routes except register/login/health require `Authorization: Bearer <JWT>` (7
 | GET | `/api/audits/:auditId/diff` | deltas vs the previous completed audit: score changes + new/fixed issues |
 | GET | `/api/audits/:auditId/markdown` | PR-comment markdown for CI |
 | PATCH | `/api/issues/:issueId/resolve` | toggle resolved |
+| GET | `/api/admin/stats` | queue counts + caller-scoped audit aggregates (Settings → System) |
 | GET | `/health` | 200, no auth |
+
+The full API contract lives in [`server/openapi.yaml`](server/openapi.yaml) (OpenAPI 3.0).
 
 ## The audit engine
 
@@ -115,6 +125,27 @@ Each completed audit snapshots every file's `contentHash` inside `staticMetrics.
 
 The Audit row records `analyzedFileCount` / `reusedFileCount`, shown in the UI badge and PR comment.
 
+## Evaluating the auditor (the part most AI projects skip)
+
+`server/eval/` is a measurement harness for the audit engine itself: a **golden dataset of 14 files** (12 with hand-labeled defects across all five categories, 2 clean controls) and a scorer that fuzzy-matches AI findings to labels on category + keyword/line (±3). It reports **precision** (findings that matched a real defect), **recall** (labeled defects found) and F1, overall and per category.
+
+```bash
+cd server
+GEMINI_API_KEY=demo npm run eval     # deterministic heuristic engine
+GEMINI_API_KEY=<key> npm run eval    # live Gemini
+npm run eval -- --limit 5            # token-frugal subset
+```
+
+Baseline results (committed in `eval/results/`), demo heuristic engine:
+
+| Metric | Value | Notes |
+|---|---|---|
+| Precision | **100%** (4/4) | zero false positives, including on the 2 clean files |
+| Recall | **30.8%** (4/13) | catches pattern-matchable defects (eval, secrets, TODOs, debug output) |
+| Recall by category | security 50% · debt 50% · style 33% · bug 0% · perf 0% | logic/architecture defects need the LLM |
+
+That gap **is the point**: the harness quantifies exactly what LLM analysis adds over static heuristics, and CI re-runs the demo-engine eval on every push as a regression gate. Run it with a Gemini key to benchmark models/prompts against the same labels.
+
 ## GitHub repo import
 
 `POST /api/projects/:id/github/import` fetches the branch HEAD and recursive tree via Octokit (anonymous, or the user's PAT from Settings for private repos / higher rate limits). Filters: known code extensions only; skips `node_modules/`, `dist/`, `build/`, `vendor/`, `.min.`, lockfiles; skips blobs > 100 KB; caps at 50 files (largest first, remainder reported as `skipped`). Files upsert on `(projectId, filename)` with fresh hashes — **re-importing after new commits feeds the incremental audit path automatically**.
@@ -131,15 +162,26 @@ Copy `.github/workflows/codelens-audit.yml` into any target repo and set three s
 
 On every PR it enqueues an incremental audit (`trigger: "ci"`), polls to completion and comments the score summary on the PR.
 
-## Tests
+## Tests & CI
 
 ```bash
-cd server && npm test    # 122 tests: auth, CRUD/ownership, scoring, static
+cd server && npm test    # 131 unit tests: auth, CRUD/ownership, scoring, static
                          # metrics, Gemini hardening, incremental, GitHub
-                         # import, PAT encryption, audit diff
+                         # import, PAT encryption, audit diff, eval metrics
+cd e2e && npm test       # real-browser flow: register → project → files →
+                         # audit → report → resolve → timeline (needs the
+                         # stack running; CI provisions it automatically)
 ```
 
-Unit tests mock Prisma, the queue and the Gemini SDK — no live Postgres/Redis needed (CI runs them on every push/PR via `.github/workflows/ci.yml`). Queue/worker integration was additionally smoke-tested against local Postgres + Redis: enqueue → worker → completed audit with Issue rows, plus incremental and all-unchanged paths.
+Unit tests mock Prisma, the queue and the Gemini SDK — no live services needed. CI (`.github/workflows/ci.yml`) runs three gates on every push/PR: unit tests + client build, the **eval-harness regression** (demo engine against the golden set), and the **browser e2e job** against real Postgres/Redis service containers.
+
+## Operations
+
+- **Structured logs:** pino JSON with per-request IDs (`x-request-id` honored); `LOG_LEVEL` env.
+- **System stats:** `GET /api/admin/stats` (surfaced in Settings → System) — queue depth, audit counts, average audit duration.
+- **Graceful shutdown:** both processes drain on SIGTERM/SIGINT (Railway/K8s friendly).
+- **Migrations:** committed Prisma migrations (`prisma migrate deploy` on boot in Docker; `prisma migrate dev` for schema changes).
+- **Failure posture:** Redis-down enqueue → 503 + audit row marked failed; Gemini JSON failures → one retry then recorded in `errorMessage`; GitHub rate limits → actionable 429.
 
 ## Deployment
 

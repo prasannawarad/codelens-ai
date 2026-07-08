@@ -13,3 +13,51 @@ jobs:
           # unit tests mock Prisma/Redis/Gemini entirely.
           DATABASE_URL: "postgresql://user:pass@localhost:5432/ci"
       - run: cd client && npm ci && npm run build
+      # Eval harness regression: the deterministic demo engine must keep its
+      # 100% precision / 4-label recall baseline on the golden set.
+      - run: cd server && npm run eval
+        env:
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/ci"
+          GEMINI_API_KEY: demo
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_PASSWORD: ci, POSTGRES_DB: codelens }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:ci@localhost:5432/codelens
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+      GEMINI_API_KEY: demo
+      CORS_ORIGIN: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: cd server && npm ci && npx prisma generate && npx prisma migrate deploy
+      - name: Start API, worker and client
+        run: |
+          (cd server && PORT=3001 node src/index.js &)
+          (cd server && node src/worker.js &)
+          (cd client && npm ci && npm run dev -- --port 5173 &)
+          timeout 60 bash -c 'until curl -sf http://localhost:3001/health; do sleep 1; done'
+          timeout 60 bash -c 'until curl -sf http://localhost:5173 >/dev/null; do sleep 1; done'
+      - name: Run browser flow
+        run: |
+          cd e2e && npm ci
+          CHROME_PATH="$(which google-chrome || which chromium-browser)" node flow.js
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: e2e-screenshots, path: e2e/shots }

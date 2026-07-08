@@ -1,0 +1,232 @@
+openapi: 3.0.3
+info:
+  title: CodeLens AI API
+  version: 1.0.0
+  description: >
+    AI code audit and technical-debt tracking. All endpoints except
+    /api/auth/register, /api/auth/login and /health require a Bearer JWT.
+    Project-scoped routes return 404 (not 403) for resources the caller does
+    not own, to avoid resource enumeration.
+servers:
+  - url: http://localhost:3001
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: string }
+            email: { type: string }
+            name: { type: string }
+    FileInput:
+      type: object
+      required: [filename, content]
+      properties:
+        filename: { type: string, example: src/routes/auth.js }
+        content: { type: string }
+    Issue:
+      type: object
+      properties:
+        id: { type: string }
+        category: { type: string, enum: [bug, security, performance, style, debt] }
+        severity: { type: string, enum: [critical, high, medium, low] }
+        title: { type: string }
+        description: { type: string }
+        suggestion: { type: string, nullable: true }
+        lineNumber: { type: integer, nullable: true }
+        resolved: { type: boolean }
+    Audit:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [queued, running, completed, failed] }
+        incremental: { type: boolean }
+        analyzedFileCount: { type: integer }
+        reusedFileCount: { type: integer }
+        overallScore: { type: number, nullable: true }
+        securityScore: { type: number, nullable: true }
+        performanceScore: { type: number, nullable: true }
+        maintainabilityScore: { type: number, nullable: true }
+        debtScore: { type: number, nullable: true }
+        complexityScore: { type: number, nullable: true }
+        summary: { type: string, nullable: true }
+        totalIssues: { type: integer }
+        criticalCount: { type: integer }
+        errorMessage: { type: string, nullable: true }
+        issues:
+          type: array
+          items: { $ref: '#/components/schemas/Issue' }
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Liveness probe (no auth)
+      security: []
+      responses: { '200': { description: OK } }
+  /api/auth/register:
+    post:
+      summary: Register (rate limited 30/15min)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name]
+              properties:
+                email: { type: string }
+                password: { type: string }
+                name: { type: string }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '409': { description: Email already registered }
+  /api/auth/login:
+    post:
+      summary: Login (rate limited 30/15min)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { description: Invalid credentials }
+  /api/auth/me:
+    get:
+      summary: Profile (PAT presence only — never the token itself)
+      responses: { '200': { description: OK } }
+    patch:
+      summary: Update name / set or clear GitHub PAT (encrypted at rest)
+      responses: { '200': { description: OK } }
+  /api/projects:
+    get:
+      summary: List own projects with last 5 audit summaries
+      responses: { '200': { description: OK } }
+    post:
+      summary: Create project
+      responses: { '201': { description: Created } }
+  /api/projects/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get:
+      summary: Project + file metadata (no content) + last 10 audits
+      responses: { '200': { description: OK }, '404': { description: Not found / not owned } }
+    patch:
+      summary: Update name/description
+      responses: { '200': { description: OK }, '404': { description: Not found / not owned } }
+    delete:
+      summary: Cascade delete
+      responses: { '204': { description: Deleted }, '404': { description: Not found / not owned } }
+  /api/projects/{id}/files:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post:
+      summary: Add files (sha256 hash, language detection, upsert on filename)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '#/components/schemas/FileInput' }
+      responses: { '201': { description: Created }, '404': { description: Not owned } }
+  /api/projects/{id}/files/{fileId}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - { name: fileId, in: path, required: true, schema: { type: string } }
+    get:
+      summary: Full file content
+      responses: { '200': { description: OK }, '404': { description: Not found } }
+    put:
+      summary: Replace content (recomputes hash + lineCount)
+      responses: { '200': { description: OK }, '404': { description: Not found } }
+    delete:
+      summary: Delete file
+      responses: { '204': { description: Deleted }, '404': { description: Not found } }
+  /api/projects/{id}/github/import:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post:
+      summary: Import a GitHub repo (max 50 code files ≤100KB, filtered tree)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repoUrl]
+              properties:
+                repoUrl: { type: string, example: https://github.com/owner/repo }
+                branch: { type: string, default: main }
+      responses:
+        '200': { description: '{imported, skipped, headSha}' }
+        '400': { description: Invalid URL }
+        '404': { description: Repo/branch not found }
+        '429': { description: GitHub rate limit — add a PAT in Settings }
+  /api/projects/{id}/audits:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    post:
+      summary: Enqueue an audit job (never runs inline)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                incremental: { type: boolean, description: Defaults true when a prior completed audit exists }
+                trigger: { type: string, enum: [manual, ci] }
+      responses:
+        '202': { description: '{auditId, jobId}' }
+        '400': { description: Project has no files }
+        '503': { description: Queue unavailable (audit row marked failed) }
+    get:
+      summary: Audit history (timeline)
+      responses: { '200': { description: OK } }
+  /api/audits/{auditId}:
+    parameters: [{ name: auditId, in: path, required: true, schema: { type: string } }]
+    get:
+      summary: Audit status + scores + issues (poll target)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Audit' }
+        '404': { description: Not found / not owned }
+  /api/audits/{auditId}/diff:
+    parameters: [{ name: auditId, in: path, required: true, schema: { type: string } }]
+    get:
+      summary: Deltas vs the previous completed audit (scores, new/fixed issues)
+      responses:
+        '200': { description: Diff object, or null when no previous audit }
+        '409': { description: Audit not completed }
+  /api/audits/{auditId}/markdown:
+    parameters: [{ name: auditId, in: path, required: true, schema: { type: string } }]
+    get:
+      summary: PR-comment markdown for the GitHub Action
+      responses:
+        '200': { description: text/markdown }
+        '409': { description: Audit not completed }
+  /api/issues/{issueId}/resolve:
+    parameters: [{ name: issueId, in: path, required: true, schema: { type: string } }]
+    patch:
+      summary: Toggle resolved (ownership via issue → audit → project)
+      responses: { '200': { description: OK }, '404': { description: Not found / not owned } }
+  /api/admin/stats:
+    get:
+      summary: Queue counts + caller-scoped audit aggregates
+      responses: { '200': { description: OK } }

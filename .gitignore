@@ -6,3 +6,6 @@ build/
 coverage/
 *.log
 .DS_Store
+e2e/shots/
+server/eval/results/*
+!server/eval/results/*.json
