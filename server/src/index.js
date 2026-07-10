@@ -18,6 +18,8 @@ app.use(
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
 app.use(express.json({ limit: '10mb' }));
 
+// Bare domain → health, so the API URL is clickable in the README.
+app.get('/', (req, res) => res.redirect('/health'));
 app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
 const authMiddleware = require('./middleware/auth');
