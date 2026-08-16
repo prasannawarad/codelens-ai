@@ -15,7 +15,13 @@ app.use(
     autoLogging: { ignore: (req) => req.url === '/health' },
   })
 );
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
+// CORS_ORIGIN takes a comma-separated list so the production alias and Vercel
+// preview/branch URLs can be allowed at once.
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+app.use(cors({ origin: corsOrigins }));
 app.use(express.json({ limit: '10mb' }));
 
 // Bare domain → health, so the API URL is clickable in the README.

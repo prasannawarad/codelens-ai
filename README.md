@@ -189,8 +189,8 @@ Unit tests mock Prisma, the queue and the Gemini SDK — no live services needed
 
 The live deployment runs on **Railway** (Postgres + Redis + `api` + `worker` services, all four in one project) and **Vercel** (client). To reproduce:
 
-- **Railway:** create a project, add Postgres + Redis, then two services deployed from the repo with `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway` (monorepo root context). The `api` service gets `DATABASE_URL`/`REDIS_URL` references, `JWT_SECRET`, `GEMINI_API_KEY`, `CORS_ORIGIN` (your Vercel URL); the `worker` service gets the same plus `SERVICE_ROLE=worker` (one image, two roles). Migrations run on boot (`prisma migrate deploy`).
-- **Client on Vercel:** root `client/`, framework Vite, env `VITE_API_URL` = the Railway API URL. `client/vercel.json` provides the SPA fallback rewrite.
+- **Railway:** create a project, add Postgres + Redis, then two services deployed from the repo with `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway` (monorepo root context). The `api` service gets `DATABASE_URL`/`REDIS_URL` references, `JWT_SECRET`, `GEMINI_API_KEY`, `CORS_ORIGIN` (your Vercel URL — comma-separate several to also allow preview/branch aliases); the `worker` service gets the same plus `SERVICE_ROLE=worker` (one image, two roles). Migrations run on boot (`prisma migrate deploy`).
+- **Client on Vercel:** env `VITE_API_URL` = the Railway API URL. Git-push deploys build from the repo root via the root `vercel.json` (installs/builds in `client/`, serves `client/dist`); `client/vercel.json` covers CLI deploys run from `client/`. Both carry the SPA fallback rewrite.
 - **Alternative managed stores:** Supabase Postgres and Upstash Redis (`rediss://…`) drop in via the same env vars — BullMQ's Upstash TLS requirements (`maxRetriesPerRequest: null`, `rejectUnauthorized: false`) are already handled.
 - Seed the live demo account with `DATABASE_URL=<public-url> npm run seed` from `server/`.
 

@@ -10,7 +10,7 @@ contracts and the four invariants (INV-1..4); don't deviate from it casually.
 ```bash
 cd server && npm run dev      # API :3001 (never runs audits inline)
 cd server && npm run worker   # BullMQ worker — separate process, required for audits
-cd server && npm test         # Jest, 131 tests, no live services needed
+cd server && npm test         # Jest, 134 tests, no live services needed
 cd server && npm run seed     # demo account: demo@codelens.dev / codelens-demo
 cd server && npm run eval     # eval harness vs golden set (GEMINI_API_KEY=demo ok)
 cd client && npm run dev      # Vite :5173
