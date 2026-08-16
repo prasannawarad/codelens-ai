@@ -48,7 +48,10 @@ Homebrew Postgres (`postgresql://prasannawarad@localhost:5432/codelens`) and loc
 
 ## Deployment (live)
 
-- Client: https://codelens-ai-olive.vercel.app (Vercel project `codelens-ai`).
+- Client: https://codelens-ai-olive.vercel.app (Vercel project `codelens-ai`). Its Root
+  Directory is `.`, so **git-push deploys are driven by the root `vercel.json`**
+  (installs/builds in `client/`, serves `client/dist`); `client/vercel.json` only applies
+  to CLI deploys run from `client/`. Keep the SPA rewrite in both.
 - API + worker + Postgres + Redis: Railway project `codelens-ai`, deployed via
   `railway up --service api|worker` with `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway`
   (the CLI uploads the git root, so `server/Dockerfile` is ignored there).
